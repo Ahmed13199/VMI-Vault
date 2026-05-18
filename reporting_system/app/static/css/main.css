@@ -814,6 +814,7 @@ a:hover {
 
 .settings-metrics-table tbody tr {
     transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
 }
 
 .settings-metrics-table tbody tr:nth-child(even) {
@@ -981,7 +982,7 @@ a:hover {
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 20;
+    z-index: 60;
     min-width: 200px;
     padding: 8px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -989,6 +990,10 @@ a:hover {
     background: #101821;
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(14px);
+}
+
+.settings-metrics-table tbody tr.settings-row-menu-open {
+    z-index: 40;
 }
 
 .settings-row-menu-form {

@@ -632,14 +632,17 @@
             if (exceptMenu && menu === exceptMenu) {
                 return;
             }
+            const row = menu.closest('tr');
             const trigger = menu.querySelector('[data-row-menu-trigger]');
             const panel = menu.querySelector('[data-row-menu-panel]');
+            row?.classList.remove('settings-row-menu-open');
             trigger?.setAttribute('aria-expanded', 'false');
             panel?.classList.add('is-hidden');
         });
     }
 
     rowMenus.forEach(menu => {
+        const row = menu.closest('tr');
         const trigger = menu.querySelector('[data-row-menu-trigger]');
         const panel = menu.querySelector('[data-row-menu-panel]');
         if (!trigger || !panel) {
@@ -651,6 +654,7 @@
             const willOpen = panel.classList.contains('is-hidden');
             closeRowMenus(willOpen ? menu : null);
             panel.classList.toggle('is-hidden', !willOpen);
+            row?.classList.toggle('settings-row-menu-open', willOpen);
             trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         });
 
