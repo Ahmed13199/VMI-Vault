@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Framework{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Framework</h1>
+    <p class="page-subtitle">Quick access to your process docs and team workflows</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: var(--spacing-lg); max-width: 1100px; margin: 0 auto; align-items: stretch;">
+    <a href="{{ url_for('documents.index') }}" class="tp-card" style="display: block; text-decoration: none; min-height: 260px;">
+        <div class="tp-card-header">
+            <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                <span aria-hidden="true" style="width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; background: rgba(255,255,255,0.06);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M14 3v4a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 13h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M8 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                </span>
+                <h2 class="tp-card-title" style="font-size: var(--font-size-xl);">Documents</h2>
+            </div>
+        </div>
+        <div class="tp-card-body">
+            <div class="tp-muted" style="font-size: var(--font-size-md); line-height: 1.6;">
+                Upload, organize, and quickly find internal documents and reference files.
+            </div>
+            <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                <span class="btn btn-secondary">Open Documents</span>
+            </div>
+        </div>
+    </a>
+
+    <a href="{{ url_for('team_processes.index') }}" class="tp-card" style="display: block; text-decoration: none; min-height: 260px;">
+        <div class="tp-card-header">
+            <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                <span aria-hidden="true" style="width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; background: rgba(255,255,255,0.06);">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M20 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <h2 class="tp-card-title" style="font-size: var(--font-size-xl);">Team Processes</h2>
+            </div>
+        </div>
+        <div class="tp-card-body">
+            <div class="tp-muted" style="font-size: var(--font-size-md); line-height: 1.6;">
+                Standardize workflows by team: create, maintain, and share process playbooks.
+            </div>
+            <div style="margin-top: var(--spacing-lg); display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                <span class="btn btn-secondary">Open Team Processes</span>
+            </div>
+        </div>
+    </a>
+</div>
+{% endblock %}

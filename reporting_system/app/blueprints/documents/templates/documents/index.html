@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Documents{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var input = document.getElementById('docFile');
+        var trigger = document.getElementById('docFileTrigger');
+        var nameEl = document.getElementById('docFileName');
+        if (!input || !nameEl) {
+            return;
+        }
+
+        function syncName() {
+            var files = input.files;
+            nameEl.textContent = (files && files.length > 0) ? files[0].name : 'No file selected';
+        }
+
+        input.addEventListener('change', syncName);
+        if (trigger) {
+            trigger.addEventListener('click', function () {
+                input.click();
+            });
+        }
+        syncName();
+    })();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Documents</h1>
+    <p class="page-subtitle">Upload documents and organize them in folders</p>
+</div>
+
+<div class="actions-bar">
+    {% if current_folder %}
+        <a href="{{ url_for('documents.folder', folder_id=current_folder.id) }}" class="btn btn-secondary">Refresh</a>
+        {% if current_folder.parent_id %}
+            <a href="{{ url_for('documents.folder', folder_id=current_folder.parent_id) }}" class="btn btn-secondary">Back</a>
+        {% else %}
+            <a href="{{ url_for('documents.index') }}" class="btn btn-secondary">Back</a>
+        {% endif %}
+    {% else %}
+        <a href="{{ url_for('documents.index') }}" class="btn btn-secondary">Refresh</a>
+    {% endif %}
+</div>
+
+<div style="margin-top: var(--spacing-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--spacing-lg);">
+    <section class="tp-card">
+        <div class="tp-card-header">
+            <h2 class="tp-card-title" style="font-size: var(--font-size-lg);">New Folder</h2>
+        </div>
+        <div class="tp-card-body">
+            {% if current_user.can_edit_page('documents') %}
+            <form method="post" action="{{ url_for('documents.create_folder') }}">
+                <div class="form-group" style="margin-bottom: var(--spacing-md);">
+                    <label for="folderName">Folder name</label>
+                    <input id="folderName" type="text" name="name" placeholder="e.g. Contracts" required>
+                    <input type="hidden" name="parent_id" value="{{ current_folder.id if current_folder else '' }}">
+                </div>
+                <div class="form-actions" style="margin-top: 0; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="tp-empty">You have view-only access to documents.</div>
+            {% endif %}
+        </div>
+    </section>
+
+    {% if current_folder and current_user.can_edit_page('documents') %}
+        <section class="tp-card">
+            <div class="tp-card-header">
+                <h2 class="tp-card-title" style="font-size: var(--font-size-lg);">Upload Document</h2>
+            </div>
+            <div class="tp-card-body">
+                <form method="post" action="{{ url_for('documents.upload') }}" enctype="multipart/form-data">
+                    <div class="form-group" style="margin-bottom: var(--spacing-md);">
+                        <label for="docTitle">Title (optional)</label>
+                        <input id="docTitle" type="text" name="title" placeholder="Leave empty to use filename">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: var(--spacing-md);">
+                        <label for="docFile">File</label>
+                        <input id="docFile" type="file" name="file" required class="sr-only" aria-describedby="docFileName">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-md);">
+                            <button id="docFileTrigger" type="button" class="btn btn-secondary">Choose file</button>
+                            <div id="docFileName" class="tp-muted" style="flex: 1; margin-top: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">No file selected</div>
+                        </div>
+                        <input type="hidden" name="folder_id" value="{{ current_folder.id }}">
+                    </div>
+
+                    <div class="form-actions" style="margin-top: 0; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    {% endif %}
+</div>
+
+<section class="tp-card" style="margin-top: var(--spacing-xl);">
+    <div class="tp-card-header">
+        <h2 class="tp-card-title">Folders</h2>
+    </div>
+    <div class="tp-card-body" style="min-height: 120px;">
+        {% if folders and folders|length > 0 %}
+            <ul class="tp-list">
+                {% for f in folders %}
+                    <li class="tp-list-item">
+                        <a class="tp-link" href="{{ url_for('documents.folder', folder_id=f.id) }}">{{ f.name }}</a>
+                        <span style="display: inline-flex; align-items: center; gap: var(--spacing-sm);">
+                            <span class="tp-meta">folder</span>
+                            {% if current_user.can_edit_page('documents') %}
+                            <form class="inline-form" method="post" action="{{ url_for('documents.delete_folder', folder_id=f.id) }}" onsubmit="return confirm('Delete this folder and everything inside it? This cannot be undone.');">
+                                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                            </form>
+                            {% endif %}
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="tp-empty">No folders.</div>
+        {% endif %}
+    </div>
+</section>
+
+{% if current_folder %}
+    <section class="tp-card" style="margin-top: var(--spacing-lg);">
+        <div class="tp-card-header">
+            <h2 class="tp-card-title">Documents</h2>
+        </div>
+        <div class="tp-card-body">
+            {% if documents and documents|length > 0 %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--spacing-lg);">
+                    {% for d in documents %}
+                        <section class="tp-card" style="height: 100%;">
+                            <div class="tp-card-header">
+                                <h3 class="tp-card-title" style="font-size: var(--font-size-lg);">
+                                    <a class="tp-link" href="{{ url_for('documents.view_document', document_id=d.id) }}" target="_blank" rel="noopener noreferrer">{{ d.title }}</a>
+                                </h3>
+                            </div>
+                            <div class="tp-card-body">
+                                <div class="tp-muted" style="margin-top: 0;">
+                                    {{ d.original_filename }}
+                                </div>
+                                <div class="tp-muted">
+                                    Created by: {{ d.created_by_user.username if d.created_by_user else '—' }}
+                                </div>
+                                <div class="tp-muted">
+                                    Updated: {{ d.updated_at.strftime('%Y-%m-%d %H:%M') if d.updated_at else '' }}
+                                </div>
+                                <div class="form-actions" style="margin-top: var(--spacing-lg);">
+                                    <a class="btn btn-small" href="{{ url_for('documents.view_document', document_id=d.id) }}" target="_blank" rel="noopener noreferrer">View</a>
+                                    {% if current_user.can_edit_page('documents') %}
+                                    <form class="inline-form" method="post" action="{{ url_for('documents.delete_document', document_id=d.id) }}" onsubmit="return confirm('Delete this document? This cannot be undone.');">
+                                        <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </section>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="tp-empty">No documents.</div>
+            {% endif %}
+        </div>
+    </section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,783 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Settings</h1>
+    <p class="page-subtitle">Manage metrics, permissions, and internal users from one control center.</p>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Settings Tabs">
+    <button type="button" class="tab-button{% if active_tab == 'metrics' %} active{% endif %}" data-tab-target="settingsTabMetrics" aria-selected="{{ 'true' if active_tab == 'metrics' else 'false' }}">Metrics</button>
+    {% if current_user.can_access_page('permissions') %}
+    <button type="button" class="tab-button{% if active_tab == 'permissions' %} active{% endif %}" data-tab-target="settingsTabPermissions" aria-selected="{{ 'true' if active_tab == 'permissions' else 'false' }}">Permissions</button>
+    {% endif %}
+    {% if current_user.can_access_page('user_management') %}
+    <button type="button" class="tab-button{% if active_tab == 'users' %} active{% endif %}" data-tab-target="settingsTabUsers" aria-selected="{{ 'true' if active_tab == 'users' else 'false' }}">Users</button>
+    {% endif %}
+    {% if current_user.can_access_page('team_management') %}
+    <button type="button" class="tab-button{% if active_tab == 'teams' %} active{% endif %}" data-tab-target="settingsTabTeams" aria-selected="{{ 'true' if active_tab == 'teams' else 'false' }}">Teams</button>
+    {% endif %}
+</div>
+
+<div id="settingsTabMetrics" class="tab-panel{% if active_tab == 'metrics' %} active{% endif %}" role="tabpanel">
+    <div class="actions-bar">
+        {% if current_user.can_edit_page('settings') %}
+        <a href="{{ url_for('settings.create_metric') }}" class="btn btn-primary">+ New Metric</a>
+        {% endif %}
+        <a href="{{ url_for('settings.metrics_graph') }}" class="btn btn-secondary">View Graph</a>
+        <a href="{{ url_for('settings.categories_index') }}" class="btn btn-secondary">Manage Categories</a>
+    </div>
+
+    <div class="settings-metrics-filter-bar" data-metrics-filters>
+        <div class="form-group">
+            <label for="metricsSearch">Search</label>
+            <input
+                id="metricsSearch"
+                type="text"
+                placeholder="Search key, display name, category, or subcategory"
+                autocomplete="off"
+                data-metrics-search
+            >
+        </div>
+        <div class="form-group">
+            <label for="metricsCategoryFilter">Category</label>
+            <select id="metricsCategoryFilter" data-metrics-category>
+                <option value="">All</option>
+                {% for category in categories %}
+                <option value="{{ category.name }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="metricsSubCategoryFilter">Subcategory</label>
+            <select id="metricsSubCategoryFilter" data-metrics-subcategory>
+                <option value="">All</option>
+                {% for sub_category in sub_categories %}
+                <option value="{{ sub_category.name }}" data-category="{{ sub_category.category.name if sub_category.category else '' }}">{{ sub_category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="metricsScopeFilter">Scope</label>
+            <select id="metricsScopeFilter" data-metrics-scope>
+                <option value="">All</option>
+                <option value="global">Global</option>
+                {% for team in teams %}
+                <option value="{{ team.name|lower }}">{{ team.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="metricsStatusFilter">Status</label>
+            <select id="metricsStatusFilter" data-metrics-status>
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+        <div class="settings-metrics-filter-summary" aria-live="polite">
+            <span class="settings-metrics-filter-count"><span data-metrics-count>{{ metrics|length }}</span> metric{{ '' if metrics|length == 1 else 's' }}</span>
+            <span class="settings-metrics-filter-active" data-metrics-active-filters>0 filters on</span>
+        </div>
+    </div>
+
+    <div class="table-container settings-metrics-table-wrap">
+        <table class="data-table settings-metrics-table">
+            <thead>
+                <tr>
+                    <th>Display Name</th>
+                    <th>Category / Subcategory</th>
+                    <th>Scope</th>
+                    <th>Layer</th>
+                    <th class="settings-tools-col"><span class="sr-only">Manage</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in metrics %}
+                {% set category_name = metric.category.name if metric.category else '' %}
+                {% set sub_category_name = metric.sub_category.name if metric.sub_category else '' %}
+                {% set category_display = category_name %}
+                {% set scope_names = [] %}
+                {% if category_name and sub_category_name %}
+                    {% set category_display = category_name ~ ' / ' ~ sub_category_name %}
+                {% elif sub_category_name %}
+                    {% set category_display = sub_category_name %}
+                {% elif not category_name %}
+                    {% set category_display = '-' %}
+                {% endif %}
+                {% if metric.scope == 'team' %}
+                    {% if metric.scoped_teams and metric.scoped_teams|length > 0 %}
+                        {% set scope_names = metric.scoped_teams | map(attribute='name') | list %}
+                    {% elif metric.team %}
+                        {% set scope_names = [metric.team.name] %}
+                    {% endif %}
+                {% endif %}
+                <tr
+                    class="{% if not metric.active %}inactive{% endif %}"
+                    data-metric-row
+                    data-key="{{ metric.key|lower }}"
+                    data-display-name="{{ metric.display_name|lower }}"
+                    data-category="{{ category_name|lower }}"
+                    data-subcategory="{{ sub_category_name|lower }}"
+                    data-scope="{{ 'global' if metric.scope == 'global' else (scope_names|join('|')|lower) }}"
+                    data-status="{{ 'active' if metric.active else 'inactive' }}"
+                >
+                    <td class="settings-metric-name-cell">
+                        <div class="settings-metric-name-stack">
+                            <div class="settings-metric-name">{{ metric.display_name }}</div>
+                            <div class="settings-metric-meta">
+                                {% if not metric.active %}
+                                <span class="settings-metric-kind settings-metric-kind-inactive">Inactive</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="settings-category-cell">
+                        <div class="settings-category-stack">
+                            {% if category_name %}
+                            <span class="settings-category-pill">{{ category_name }}</span>
+                            {% endif %}
+                            {% if sub_category_name %}
+                            <span class="settings-subcategory-pill">{{ sub_category_name }}</span>
+                            {% endif %}
+                            {% if not category_name and not sub_category_name %}
+                            <span class="settings-category-empty">Uncategorized</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="settings-scope-cell">
+                        {% if metric.scope == 'team' %}
+                            {% if metric.scoped_teams and metric.scoped_teams|length > 0 %}
+                                <div class="settings-scope-pills">
+                                {% for t in metric.scoped_teams %}
+                                    <span class="settings-scope-pill">{{ t.name }}</span>
+                                {% endfor %}
+                                </div>
+                            {% elif metric.team %}
+                                <div class="settings-scope-pills">
+                                    <span class="settings-scope-pill">{{ metric.team.name }}</span>
+                                </div>
+                            {% else %}
+                                <span class="settings-category-empty">Team-scoped</span>
+                            {% endif %}
+                        {% else %}
+                            <div class="settings-scope-pills">
+                                <span class="settings-scope-pill settings-scope-pill-global">Global</span>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td class="settings-layer-cell">
+                        <span class="settings-layer-badge">L{{ metric.layer }}</span>
+                    </td>
+                    <td class="settings-row-tools">
+                        {% if current_user.can_edit_page('settings') %}
+                        <div class="settings-row-menu" data-row-menu>
+                            <button
+                                type="button"
+                                class="settings-menu-trigger"
+                                aria-label="Open actions for {{ metric.display_name }}"
+                                aria-expanded="false"
+                                data-row-menu-trigger
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle cx="12" cy="5" r="1.8" fill="currentColor"/>
+                                    <circle cx="12" cy="12" r="1.8" fill="currentColor"/>
+                                    <circle cx="12" cy="19" r="1.8" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <div class="settings-row-menu-panel is-hidden" data-row-menu-panel>
+                                <a href="{{ url_for('settings.edit_metric', metric_id=metric.id) }}" class="settings-row-menu-item">
+                                    Edit
+                                </a>
+                                {% if metric.active %}
+                                <form method="POST" action="{{ url_for('settings.deactivate_metric', metric_id=metric.id) }}" class="settings-row-menu-form" onsubmit="return confirm('Deactivate this metric? You will NOT be able to reuse the same key while it is inactive.');">
+                                    <button type="submit" class="settings-row-menu-item settings-row-menu-item-warning">
+                                        Deactivate
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('settings.activate_metric', metric_id=metric.id) }}" class="settings-row-menu-form">
+                                    <button type="submit" class="settings-row-menu-item settings-row-menu-item-success">
+                                        Activate
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('settings.delete_metric_permanently', metric_id=metric.id) }}" class="settings-row-menu-form" onsubmit="return confirm('PERMANENTLY delete this metric AND all its saved values? This cannot be undone. This will be blocked if the metric is referenced by derived formulas.');">
+                                    <button type="submit" class="settings-row-menu-item settings-row-menu-item-danger">
+                                        Delete permanently
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% else %}
+                            <span class="status-inactive">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty-row">
+                        No metrics defined yet.
+                        {% if current_user.can_edit_page('settings') %}
+                        <a href="{{ url_for('settings.create_metric') }}">Create your first metric</a>.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr class="is-hidden" data-metrics-empty>
+                    <td colspan="5" class="empty-row">No metrics match the current search or filters.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="help-section">
+        <h3>About Metrics</h3>
+        <ul>
+            <li><strong>Base Metrics (Layer 1):</strong> Raw input values entered manually.</li>
+            <li><strong>Derived Metrics (Layer 2+):</strong> Calculated using formulas and existing metrics.</li>
+            <li><strong>Scope:</strong> Global metrics apply to all teams; team metrics stay limited to selected teams.</li>
+        </ul>
+    </div>
+</div>
+
+{% if current_user.can_access_page('permissions') %}
+<div id="settingsTabPermissions" class="tab-panel{% if active_tab == 'permissions' %} active{% endif %}" role="tabpanel">
+    <section class="access-hero">
+        <div>
+            <span class="access-hero-kicker">Admin only</span>
+            <h2>Rank-based permissions</h2>
+            <p>Control which ranks can open each main area and which ranks can make changes. Admin access remains permanently enabled.</p>
+        </div>
+        <div class="access-hero-card">
+            <div class="access-hero-stat">
+                <strong>Ranks</strong>
+                <span>Team Leader, Senior, Agent, Admin</span>
+            </div>
+            <div class="access-hero-stat">
+                <strong>Controls</strong>
+                <span>View access and edit rights for each core page</span>
+            </div>
+        </div>
+    </section>
+
+    <form method="POST" action="{{ url_for('settings.access_control') }}" class="access-form">
+        {% for group_name, pages in permission_groups.items() %}
+        <section class="access-section">
+            <div class="access-section-header">
+                <h2>{{ group_name }}</h2>
+                <p>{{ pages|length }} page{{ '' if pages|length == 1 else 's' }}</p>
+            </div>
+
+            <div class="access-table-wrap">
+                <table class="data-table access-table">
+                    <thead>
+                        <tr>
+                            <th>Page</th>
+                            <th>Team Leader</th>
+                            <th>Senior</th>
+                            <th>Agent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for page in pages %}
+                        <tr>
+                            <td class="access-page-cell">
+                                <div class="access-page-name">{{ page.name }}</div>
+                                <div class="access-page-desc">{{ page.description }}</div>
+                            </td>
+                            {% for permission in page.permissions %}
+                                {% if permission.rank != 'admin' %}
+                                <td>
+                                    <label class="access-check">
+                                        <input type="checkbox" name="perm__{{ page.key }}__{{ permission.rank }}__view" {% if permission.can_view %}checked{% endif %}>
+                                        <span>View</span>
+                                    </label>
+                                    <label class="access-check">
+                                        <input type="checkbox" name="perm__{{ page.key }}__{{ permission.rank }}__edit" {% if permission.can_edit %}checked{% endif %}>
+                                        <span>Edit</span>
+                                    </label>
+                                </td>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        <tr class="access-admin-row">
+                            <td class="access-page-cell">
+                                <div class="access-page-name">Admin override</div>
+                                <div class="access-page-desc">Admins always keep full access to all settings, permissions, and user management functions.</div>
+                            </td>
+                            <td colspan="3"><span class="badge badge-derived">Full access locked</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Permissions</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if current_user.can_access_page('user_management') %}
+<div id="settingsTabUsers" class="tab-panel{% if active_tab == 'users' %} active{% endif %}" role="tabpanel">
+    <section class="settings-user-card">
+        <div class="access-section-header">
+            <h2>Add New User</h2>
+            <p>Admin-only</p>
+        </div>
+        <div class="settings-user-body">
+            <form method="POST" action="{{ url_for('settings.create_user') }}">
+                <div class="settings-user-form-grid">
+                    <div class="form-group">
+                        <label for="user_first_name">First Name</label>
+                        <input id="user_first_name" type="text" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user_last_name">Last Name</label>
+                        <input id="user_last_name" type="text" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user_username">Username</label>
+                        <input id="user_username" type="text" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user_password">Password</label>
+                        <input id="user_password" type="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="user_team_id">Team</label>
+                        <select id="user_team_id" name="team_id">
+                            <option value="">No Team</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="user_rank">Rank</label>
+                        <select id="user_rank" name="rank" required>
+                            {% for rank in rank_options %}
+                            <option value="{{ rank }}">{{ rank.replace('_', ' ')|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="settings-user-card settings-user-table-card">
+        <div class="access-section-header">
+            <h2>Current Users</h2>
+            <p>{{ users_total }} account{{ '' if users_total == 1 else 's' }}</p>
+        </div>
+        <div class="settings-user-body">
+            <form method="GET" action="{{ url_for('settings.index') }}" class="settings-filter-bar">
+                <input type="hidden" name="tab" value="users">
+                <div class="form-group">
+                    <label for="user_search">Search</label>
+                    <input id="user_search" type="text" name="user_search" value="{{ user_search or '' }}" placeholder="Search by name or username">
+                </div>
+                <div class="form-group">
+                    <label for="rank_filter">Rank</label>
+                    <select id="rank_filter" name="rank_filter">
+                        <option value="">All Ranks</option>
+                        {% for rank in rank_options %}
+                        <option value="{{ rank }}" {% if rank_filter == rank %}selected{% endif %}>{{ rank.replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="team_filter">Team</label>
+                    <select id="team_filter" name="team_filter">
+                        <option value="">All Teams</option>
+                        {% for team in teams %}
+                        <option value="{{ team.id }}" {% if team_filter == team.id %}selected{% endif %}>{{ team.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-secondary">Apply</button>
+                    <a href="{{ url_for('settings.index', tab='users') }}" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.full_name }}</td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.role }}</td>
+                        <td>{{ user.display_rank() }}</td>
+                        <td>{{ user.team.name if user.team else '-' }}</td>
+                        <td class="actions">
+                            {% if user.effective_rank() != 'admin' %}
+                            <button type="button" class="btn btn-small btn-secondary" data-user-edit-toggle="userEdit{{ user.id }}">Edit</button>
+                            {% else %}
+                            <span class="status-inactive">Locked</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if user.effective_rank() != 'admin' %}
+                    <tr id="userEdit{{ user.id }}" class="settings-inline-row is-hidden">
+                        <td colspan="6">
+                            <form method="POST" action="{{ url_for('settings.update_user', user_id=user.id) }}">
+                                <div class="settings-user-form-grid">
+                                    <div class="form-group">
+                                        <label>First Name</label>
+                                        <input type="text" name="first_name" value="{{ user.first_name or '' }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Last Name</label>
+                                        <input type="text" name="last_name" value="{{ user.last_name or '' }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Username</label>
+                                        <input type="text" name="username" value="{{ user.username }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>New Password</label>
+                                        <input type="password" name="password" placeholder="Leave blank to keep current password">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Team</label>
+                                        <select name="team_id">
+                                            <option value="">No Team</option>
+                                            {% for team in teams %}
+                                            <option value="{{ team.id }}" {% if user.team and user.team.id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Rank</label>
+                                        <select name="rank" required>
+                                            {% for rank in rank_options %}
+                                            <option value="{{ rank }}" {% if user.effective_rank() == rank %}selected{% endif %}>{{ rank.replace('_', ' ')|title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="btn btn-primary">Save User</button>
+                                    <button type="button" class="btn btn-secondary" data-user-edit-toggle="userEdit{{ user.id }}">Cancel</button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-row">No users found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="settings-pagination">
+            {% if user_page > 1 %}
+            <a class="btn btn-small btn-secondary" href="{{ url_for('settings.index', tab='users', user_page=user_page-1, user_search=user_search, rank_filter=rank_filter, team_filter=team_filter) }}">Previous</a>
+            {% endif %}
+            <span>Page {{ user_page }} of {{ users_pages }}</span>
+            {% if user_page < users_pages %}
+            <a class="btn btn-small btn-secondary" href="{{ url_for('settings.index', tab='users', user_page=user_page+1, user_search=user_search, rank_filter=rank_filter, team_filter=team_filter) }}">Next</a>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endif %}
+
+{% if current_user.can_access_page('team_management') %}
+<div id="settingsTabTeams" class="tab-panel{% if active_tab == 'teams' %} active{% endif %}" role="tabpanel">
+    <div class="settings-user-grid">
+        <section class="settings-user-card">
+            <div class="access-section-header">
+                <h2>Create Team</h2>
+                <p>Admin-only</p>
+            </div>
+            <div class="settings-user-body">
+                <form method="POST" action="{{ url_for('settings.create_team') }}">
+                    <div class="settings-user-form-grid">
+                        <div class="form-group">
+                            <label for="team_name">Team Name</label>
+                            <input id="team_name" type="text" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="team_type">Team Type</label>
+                            <input id="team_type" type="text" name="type" placeholder="example: experience, sales, estimation">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Team</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="settings-user-card">
+            <div class="access-section-header">
+                <h2>Current Teams</h2>
+                <p>{{ teams|length }} team{{ '' if teams|length == 1 else 's' }}</p>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Users</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for team in teams %}
+                        <tr>
+                            <td>{{ team.name }}</td>
+                            <td>{{ team.type or '-' }}</td>
+                            <td>{{ team_user_counts.get(team.id, 0) }}</td>
+                            <td class="actions">
+                                <button type="button" class="btn btn-small btn-secondary" data-user-edit-toggle="teamEdit{{ team.id }}">Edit</button>
+                                <form method="POST" action="{{ url_for('settings.delete_team', team_id=team.id) }}" class="inline-form" onsubmit="return confirm('Delete this team? This is blocked if the team is assigned anywhere.');">
+                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr id="teamEdit{{ team.id }}" class="settings-inline-row is-hidden">
+                            <td colspan="4">
+                                <form method="POST" action="{{ url_for('settings.update_team', team_id=team.id) }}">
+                                    <div class="settings-user-form-grid">
+                                        <div class="form-group">
+                                            <label>Team Name</label>
+                                            <input type="text" name="name" value="{{ team.name }}" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Team Type</label>
+                                            <input type="text" name="type" value="{{ team.type or '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Save Team</button>
+                                        <button type="button" class="btn btn-secondary" data-user-edit-toggle="teamEdit{{ team.id }}">Cancel</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-row">No teams found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endif %}
+
+<script>
+(() => {
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button[data-tab-target]'));
+    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+
+    function activateTab(targetId) {
+        tabButtons.forEach(btn => {
+            const active = btn.getAttribute('data-tab-target') === targetId;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
+        tabPanels.forEach(panel => {
+            panel.classList.toggle('active', panel.id === targetId);
+        });
+    }
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => activateTab(btn.getAttribute('data-tab-target')));
+    });
+
+    document.querySelectorAll('[data-user-edit-toggle]').forEach(button => {
+        button.addEventListener('click', () => {
+            const row = document.getElementById(button.getAttribute('data-user-edit-toggle'));
+            if (row) {
+                row.classList.toggle('is-hidden');
+            }
+        });
+    });
+
+    const rowMenus = Array.from(document.querySelectorAll('[data-row-menu]'));
+
+    function closeRowMenus(exceptMenu = null) {
+        rowMenus.forEach(menu => {
+            if (exceptMenu && menu === exceptMenu) {
+                return;
+            }
+            const trigger = menu.querySelector('[data-row-menu-trigger]');
+            const panel = menu.querySelector('[data-row-menu-panel]');
+            trigger?.setAttribute('aria-expanded', 'false');
+            panel?.classList.add('is-hidden');
+        });
+    }
+
+    rowMenus.forEach(menu => {
+        const trigger = menu.querySelector('[data-row-menu-trigger]');
+        const panel = menu.querySelector('[data-row-menu-panel]');
+        if (!trigger || !panel) {
+            return;
+        }
+
+        trigger.addEventListener('click', event => {
+            event.stopPropagation();
+            const willOpen = panel.classList.contains('is-hidden');
+            closeRowMenus(willOpen ? menu : null);
+            panel.classList.toggle('is-hidden', !willOpen);
+            trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+
+        panel.addEventListener('click', event => {
+            event.stopPropagation();
+        });
+    });
+
+    document.addEventListener('click', () => closeRowMenus());
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closeRowMenus();
+        }
+    });
+
+    const metricsFilterRoot = document.querySelector('[data-metrics-filters]');
+    if (metricsFilterRoot) {
+        const searchInput = metricsFilterRoot.querySelector('[data-metrics-search]');
+        const categorySelect = metricsFilterRoot.querySelector('[data-metrics-category]');
+        const subCategorySelect = metricsFilterRoot.querySelector('[data-metrics-subcategory]');
+        const scopeSelect = metricsFilterRoot.querySelector('[data-metrics-scope]');
+        const statusSelect = metricsFilterRoot.querySelector('[data-metrics-status]');
+        const countLabel = metricsFilterRoot.querySelector('[data-metrics-count]');
+        const activeFiltersLabel = metricsFilterRoot.querySelector('[data-metrics-active-filters]');
+        const rows = Array.from(document.querySelectorAll('[data-metric-row]'));
+        const emptyRow = document.querySelector('[data-metrics-empty]');
+        const subCategoryOptions = Array.from(subCategorySelect ? subCategorySelect.options : []);
+
+        function updateSubCategoryOptions() {
+            if (!subCategorySelect) {
+                return;
+            }
+
+            const selectedCategory = (categorySelect?.value || '').toLowerCase();
+            let hasSelectedSubCategory = false;
+
+            subCategoryOptions.forEach(option => {
+                if (!option.value) {
+                    option.hidden = false;
+                    option.disabled = false;
+                    return;
+                }
+
+                const optionCategory = (option.dataset.category || '').toLowerCase();
+                const visible = !selectedCategory || optionCategory === selectedCategory;
+                option.hidden = !visible;
+                option.disabled = !visible;
+
+                if (visible && option.value === subCategorySelect.value) {
+                    hasSelectedSubCategory = true;
+                }
+            });
+
+            if (subCategorySelect.value && !hasSelectedSubCategory) {
+                subCategorySelect.value = '';
+            }
+        }
+
+        function getFilterState() {
+            return {
+                query: (searchInput?.value || '').trim().toLowerCase(),
+                category: (categorySelect?.value || '').trim().toLowerCase(),
+                subCategory: (subCategorySelect?.value || '').trim().toLowerCase(),
+                scope: (scopeSelect?.value || '').trim().toLowerCase(),
+                status: (statusSelect?.value || '').trim().toLowerCase(),
+            };
+        }
+
+        function getActiveFilterCount(filterState) {
+            return ['query', 'category', 'subCategory', 'scope', 'status'].filter(key => Boolean(filterState[key])).length;
+        }
+
+        function rowMatches(row, filterState) {
+            const key = row.dataset.key || '';
+            const displayName = row.dataset.displayName || '';
+            const rowCategory = row.dataset.category || '';
+            const rowSubCategory = row.dataset.subcategory || '';
+            const rowScopes = (row.dataset.scope || '').split('|').filter(Boolean);
+            const rowStatus = row.dataset.status || '';
+
+            const matchesQuery = !filterState.query || [key, displayName, rowCategory, rowSubCategory].some(value => value.includes(filterState.query));
+            const matchesCategory = !filterState.category || rowCategory === filterState.category;
+            const matchesSubCategory = !filterState.subCategory || rowSubCategory === filterState.subCategory;
+            const matchesScope = !filterState.scope || rowScopes.includes(filterState.scope);
+            const matchesStatus = !filterState.status || rowStatus === filterState.status;
+
+            return matchesQuery && matchesCategory && matchesSubCategory && matchesScope && matchesStatus;
+        }
+
+        function applyMetricFilters() {
+            const filterState = getFilterState();
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const visible = rowMatches(row, filterState);
+                row.classList.toggle('is-hidden', !visible);
+                if (visible) {
+                    visibleCount += 1;
+                }
+            });
+
+            if (countLabel) {
+                countLabel.textContent = visibleCount;
+            }
+
+            if (activeFiltersLabel) {
+                const activeCount = getActiveFilterCount(filterState);
+                activeFiltersLabel.textContent = `${activeCount} filter${activeCount === 1 ? '' : 's'} on`;
+            }
+
+            if (emptyRow) {
+                emptyRow.classList.toggle('is-hidden', visibleCount !== 0);
+            }
+        }
+
+        updateSubCategoryOptions();
+        applyMetricFilters();
+
+        searchInput?.addEventListener('input', applyMetricFilters);
+        categorySelect?.addEventListener('change', () => {
+            updateSubCategoryOptions();
+            applyMetricFilters();
+        });
+        subCategorySelect?.addEventListener('change', applyMetricFilters);
+        scopeSelect?.addEventListener('change', applyMetricFilters);
+        statusSelect?.addEventListener('change', applyMetricFilters);
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team.name }} Processes{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var input = document.getElementById('processSearch');
+        var cards = document.querySelectorAll('[data-process-card]');
+        var empty = document.getElementById('processNoResults');
+
+        if (!input) {
+            return;
+        }
+
+        function applyFilter() {
+            var q = (input.value || '').toLowerCase().trim();
+            var visibleCount = 0;
+
+            for (var i = 0; i < cards.length; i++) {
+                var el = cards[i];
+                var hay = (el.getAttribute('data-search') || '').toLowerCase();
+                var show = !q || hay.indexOf(q) !== -1;
+                el.style.display = show ? '' : 'none';
+                if (show) {
+                    visibleCount++;
+                }
+            }
+
+            if (empty) {
+                empty.style.display = visibleCount === 0 ? '' : 'none';
+            }
+        }
+
+        input.addEventListener('input', applyFilter);
+        applyFilter();
+    })();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ team.name }} Processes</h1>
+    <p class="page-subtitle">Standard operating procedures and playbooks</p>
+</div>
+
+<div class="actions-bar">
+    {% if current_user.can_edit_page('team_processes') %}
+    <a href="{{ url_for('team_processes.create_process', team_id=team.id) }}" class="btn btn-primary">+ New Process</a>
+    {% endif %}
+    <a href="{{ url_for('team_processes.index') }}" class="btn btn-secondary">All Teams</a>
+</div>
+
+<div class="inline-form-group" style="margin-top: 0;">
+    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+        <label for="processSearch">Search</label>
+        <input id="processSearch" type="text" placeholder="Search processes by title, status, or creator..." autocomplete="off">
+    </div>
+</div>
+
+{% if processes and processes|length > 0 %}
+<div class="tp-grid" style="margin-top: var(--spacing-lg);">
+    {% for p in processes %}
+    {% set creator_name = p.created_by_user.username if p.created_by_user else '' %}
+    <section class="tp-card" data-process-card data-search="{{ p.title }} {{ p.status }} {{ creator_name }}">
+        <div class="tp-card-header">
+            <h2 class="tp-card-title">
+                <a class="tp-link" href="{{ url_for('team_processes.view_process', team_id=team.id, process_id=p.id) }}">{{ p.title }}</a>
+            </h2>
+            <div class="tp-card-actions">
+                <span class="badge badge-base">{{ p.status }}</span>
+            </div>
+        </div>
+
+        <div class="tp-card-body">
+            <div class="tp-muted" style="margin-top: 0;">
+                Creator: {{ creator_name if creator_name else '—' }}
+            </div>
+            <div class="tp-muted">
+                Created: {{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }}
+            </div>
+            <div class="tp-muted">
+                Updated: {{ p.updated_at.strftime('%Y-%m-%d %H:%M') if p.updated_at else '' }}
+            </div>
+
+            <div class="form-actions" style="margin-top: var(--spacing-lg);">
+                <a href="{{ url_for('team_processes.view_process', team_id=team.id, process_id=p.id) }}" class="btn btn-small">View</a>
+                {% if current_user.can_edit_page('team_processes') %}
+                <a href="{{ url_for('team_processes.edit_process', team_id=team.id, process_id=p.id) }}" class="btn btn-small btn-secondary">Edit</a>
+                <form class="inline-form" method="post" action="{{ url_for('team_processes.delete_process', team_id=team.id, process_id=p.id) }}" onsubmit="return confirm('Delete this process? This cannot be undone.');">
+                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+    {% endfor %}
+</div>
+
+<div id="processNoResults" class="tp-empty" style="display:none; margin-top: var(--spacing-lg);">No matching processes.</div>
+{% else %}
+<div class="tp-empty" style="margin-top: var(--spacing-lg);">No processes yet. Create the first one.</div>
+{% endif %}
+{% endblock %}

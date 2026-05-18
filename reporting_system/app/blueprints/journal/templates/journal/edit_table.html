@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Journal - {{ table.name }}{% endblock %}
+
+{% block content %}
+<div class="journal-editor-header">
+    <div>
+        <div class="page-header" style="margin-bottom: 0;">
+            <h1>Journal Table</h1>
+            <p class="page-subtitle">Rename headers and edit cells. Numbers are stored as numbers; anything else is stored as text.</p>
+        </div>
+    </div>
+    <div>
+        <a class="btn btn-secondary" href="{{ url_for('journal.index') }}">Back</a>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('journal.edit_table', table_id=table.id) }}">
+
+    <div class="form-container" style="margin-bottom: var(--spacing-lg);">
+        <div class="form-group">
+            <label for="table_name">Table name</label>
+            <input type="text" id="table_name" name="table_name" value="{{ table.name }}">
+        </div>
+    </div>
+
+    <div class="form-actions" style="justify-content: flex-end; margin-bottom: var(--spacing-lg);">
+        <button type="submit" class="btn btn-primary" name="action" value="save">Save</button>
+        <button type="submit"
+                class="btn btn-danger"
+                formmethod="POST"
+                formaction="{{ url_for('journal.delete_table', table_id=table.id) }}"
+                onclick="return confirm('Delete this table? This cannot be undone.');">
+            Delete
+        </button>
+    </div>
+
+    <div class="journal-grid-wrap">
+        <table class="journal-grid">
+            <thead>
+                <tr>
+                    <th style="min-width: 220px;">Rows \ Cols</th>
+                    {% for c in cols %}
+                        <th style="min-width: 160px;">
+                            <input type="text" name="col_name_{{ c.id }}" value="{{ c.name }}">
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <th style="min-width: 220px;">
+                        <input type="text" name="row_name_{{ r.id }}" value="{{ r.name }}">
+                    </th>
+                    {% for c in cols %}
+                        {% set cell = cell_map.get((r.id, c.id)) %}
+                        <td>
+                            <input type="text" name="cell_{{ r.id }}_{{ c.id }}" value="{% if cell %}{% if cell.value_number is not none %}{{ cell.value_number }}{% else %}{{ cell.value_text }}{% endif %}{% endif %}">
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-actions" style="justify-content: flex-start; margin-top: var(--spacing-lg);">
+        <button type="submit" class="btn btn-secondary" name="action" value="add_row">Add Row</button>
+        <button type="submit" class="btn btn-secondary" name="action" value="add_col">Add Column</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}{{ process.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ process.title }}</h1>
+    <p class="page-subtitle">{{ team.name }} • {{ process.status }}</p>
+</div>
+
+<div class="actions-bar">
+    <a href="{{ url_for('team_processes.team', team_id=team.id) }}" class="btn btn-secondary">Back</a>
+    {% if current_user.can_edit_page('team_processes') and (current_user.is_admin() or (process.created_by_user_id and process.created_by_user_id == current_user.id) or (process.created_by_user_id is none and current_user.team_id == team.id)) %}
+        <a href="{{ url_for('team_processes.edit_process', team_id=team.id, process_id=process.id) }}" class="btn btn-secondary">Edit</a>
+        <form method="POST" action="{{ url_for('team_processes.delete_process', team_id=team.id, process_id=process.id) }}" class="inline-form" onsubmit="return confirm('Delete this process?');">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+    {% endif %}
+</div>
+
+<div class="tp-process">
+    {% if process.sections and process.sections|length > 0 %}
+        <div class="tp-sections">
+            {% for s in process.sections %}
+                <section class="tp-section">
+                    {% if current_user.can_edit_page('team_processes') and (current_user.is_admin() or (process.created_by_user_id and process.created_by_user_id == current_user.id) or (s.created_by_user_id and s.created_by_user_id == current_user.id)) %}
+                        <div class="tp-section-actions">
+                            <a href="{{ url_for('team_processes.edit_section', team_id=team.id, process_id=process.id, section_id=s.id) }}" class="btn btn-small btn-secondary">Edit</a>
+                            <form method="POST" action="{{ url_for('team_processes.delete_section', team_id=team.id, process_id=process.id, section_id=s.id) }}" class="inline-form" onsubmit="return confirm('Delete this section?');">
+                                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    {% endif %}
+                    {% if s.section_type in ['h2', 'h3'] %}
+                        {% if s.section_type == 'h2' %}
+                            <h2 class="tp-h2 tp-align-{{ s.text_align or 'left' }}">{% if s.title_html %}<span class="tp-title-rich">{{ s.title_html|safe }}</span>{% else %}{{ s.title or '' }}{% endif %}</h2>
+                        {% else %}
+                            <h3 class="tp-h3 tp-align-{{ s.text_align or 'left' }}">{% if s.title_html %}<span class="tp-title-rich">{{ s.title_html|safe }}</span>{% else %}{{ s.title or '' }}{% endif %}</h3>
+                        {% endif %}
+                        {% if s.content %}
+                            <div class="tp-rich tp-paragraph">{{ s.content|safe }}</div>
+                        {% endif %}
+                    {% elif s.section_type == 'step' %}
+                        <div class="tp-step">
+                            <div class="tp-step-title tp-align-{{ s.text_align or 'left' }}">{% if s.title_html %}<span class="tp-title-rich">{{ s.title_html|safe }}</span>{% else %}{{ s.title or 'Step' }}{% endif %}</div>
+                            {% if s.content %}
+                                <div class="tp-rich tp-step-body">{{ s.content|safe }}</div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        {% if s.title %}
+                            <h3 class="tp-h3 tp-align-{{ s.text_align or 'left' }}">{% if s.title_html %}<span class="tp-title-rich">{{ s.title_html|safe }}</span>{% else %}{{ s.title }}{% endif %}</h3>
+                        {% endif %}
+                        {% if s.content %}
+                            <div class="tp-rich tp-paragraph">{{ s.content|safe }}</div>
+                        {% endif %}
+                    {% endif %}
+
+                </section>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No content yet.</p>
+            <p class="hint">Add sections below (headings, paragraphs, steps).</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if current_user.can_edit_page('team_processes') %}
+<div class="form-container">
+    <h2>Add Section</h2>
+    <form method="POST" action="{{ url_for('team_processes.add_section', team_id=team.id, process_id=process.id) }}" onsubmit="return tpSyncEditorsToForm();">
+        <div class="form-group">
+            <label for="section_type">Type</label>
+            <select id="section_type" name="section_type">
+                <option value="h2">Header (H2)</option>
+                <option value="h3">Header (H3)</option>
+                <option value="paragraph" selected>Paragraph</option>
+                <option value="step">Step</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Title (Rich)</label>
+            <input type="hidden" id="text_align" name="text_align" value="left" />
+            <input type="hidden" id="title_html" name="title_html" />
+            <input type="hidden" id="title" name="title" />
+            <div class="tp-editor tp-title-editor">
+                <div class="tp-editor-toolbar" role="toolbar" aria-label="Title formatting">
+                    <div class="tp-tool-row">
+                        <div class="tp-tool-group">
+                            <button type="button" class="tp-tool-btn" data-cmd="bold" data-target="title" aria-label="Bold"><strong>B</strong></button>
+                            <button type="button" class="tp-tool-btn" data-cmd="italic" data-target="title" aria-label="Italic"><em>I</em></button>
+                            <button type="button" class="tp-tool-btn" data-cmd="underline" data-target="title" aria-label="Underline"><span class="tp-u">U</span></button>
+                        </div>
+                        <div class="tp-tool-group tp-align-toggle" role="group" aria-label="Title alignment">
+                            <button type="button" class="tp-tool-btn is-active" data-align="left" data-target="title" aria-label="Align left">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm0 4h12v2H3V9zm0 4h18v2H3v-2zm0 4h12v2H3v-2z"/></svg>
+                            </button>
+                            <button type="button" class="tp-tool-btn" data-align="center" data-target="title" aria-label="Align center">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm3 4h12v2H6V9zm-3 4h18v2H3v-2zm3 4h12v2H6v-2z"/></svg>
+                            </button>
+                            <button type="button" class="tp-tool-btn" data-align="right" data-target="title" aria-label="Align right">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v2H3V5zm6 4h12v2H9V9zM3 13h18v2H3v-2zm6 4h12v2H9v-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="tp-tool-group">
+                            <span class="tp-font-wrap" aria-label="Title size">
+                                <span class="tp-font-label">T</span>
+                                <select class="tp-editor-select tp-font-select" id="tpTitleFontSize" aria-label="Title size">
+                                    <option value="" selected>Size</option>
+                                    <option value="16px">16</option>
+                                    <option value="18px">18</option>
+                                    <option value="20px">20</option>
+                                    <option value="24px">24</option>
+                                    <option value="28px">28</option>
+                                </select>
+                            </span>
+                            <input type="color" class="tp-editor-color" id="tpTitleColor" aria-label="Title color" />
+                        </div>
+                    </div>
+                </div>
+                <div id="tpTitleEditor" class="tp-editor-area tp-title-area tp-align-left" contenteditable="true" aria-label="Title editor"></div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="content">Content</label>
+            <input type="hidden" id="content_html" name="content_html" />
+            <div class="tp-editor">
+                <div class="tp-editor-toolbar" role="toolbar" aria-label="Formatting">
+                    <div class="tp-tool-row">
+                        <div class="tp-tool-group">
+                            <button type="button" class="tp-tool-btn" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+                            <button type="button" class="tp-tool-btn" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+                            <button type="button" class="tp-tool-btn" data-cmd="underline" aria-label="Underline"><span class="tp-u">U</span></button>
+                            <button type="button" class="tp-tool-btn" data-cmd="insertUnorderedList" aria-label="Bullets">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5a1.5 1.5 0 1 0 0 .01V6.5zM8 6h13v2H8V6zM4 12.5a1.5 1.5 0 1 0 0 .01v-.01zM8 12h13v2H8v-2zM4 18.5a1.5 1.5 0 1 0 0 .01v-.01zM8 18h13v2H8v-2z"/></svg>
+                            </button>
+                            <button type="button" class="tp-tool-btn" data-cmd="insertOrderedList" aria-label="Numbering">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h2V4H3v2h1zm0 2h3V6H5v1H4v1zm0 5h1v1H3v-1h1v-1H3v-1h2v-1H3V9h3v4H4zm4-7h13v2H8V6zm0 6h13v2H8v-2zm0 6h13v2H8v-2z"/></svg>
+                            </button>
+                        </div>
+                        <div class="tp-tool-group"></div>
+                        <div class="tp-tool-group">
+                            <span class="tp-font-wrap" aria-label="Font size">
+                                <span class="tp-font-label">T</span>
+                                <select class="tp-editor-select tp-font-select" id="tpFontSize" aria-label="Font size">
+                                    <option value="" selected>Size</option>
+                                    <option value="12px">12</option>
+                                    <option value="14px">14</option>
+                                    <option value="16px">16</option>
+                                    <option value="18px">18</option>
+                                    <option value="20px">20</option>
+                                    <option value="24px">24</option>
+                                </select>
+                            </span>
+                            <input type="color" class="tp-editor-color" id="tpColor" aria-label="Text color" />
+                        </div>
+                    </div>
+                </div>
+                <div id="tpEditor" class="tp-editor-area" contenteditable="true" aria-label="Editor"></div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<script>
+function tpExec(cmd, value) {
+    try {
+        document.execCommand(cmd, false, value);
+    } catch (e) {
+    }
+}
+
+function tpSyncEditorsToForm() {
+    const editor = document.getElementById('tpEditor');
+    const contentHtml = document.getElementById('content_html');
+    const titleEditor = document.getElementById('tpTitleEditor');
+    const titleHtml = document.getElementById('title_html');
+    const titlePlain = document.getElementById('title');
+
+    if (editor && contentHtml) {
+        contentHtml.value = editor.innerHTML || '';
+    }
+    if (titleEditor && titleHtml) {
+        titleHtml.value = titleEditor.innerHTML || '';
+        if (titlePlain) {
+            titlePlain.value = (titleEditor.textContent || '').trim();
+        }
+    }
+    return true;
+}
+
+function tpNormalizeFontSize(editorEl, size) {
+    if (!editorEl || !size) return;
+    const fontEls = editorEl.querySelectorAll('font[size="7"]');
+    fontEls.forEach(function(el) {
+        const span = document.createElement('span');
+        span.style.fontSize = size;
+        span.innerHTML = el.innerHTML;
+        el.parentNode.replaceChild(span, el);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const toolbars = document.querySelectorAll('.tp-editor-toolbar');
+    const editor = document.getElementById('tpEditor');
+    const titleEditor = document.getElementById('tpTitleEditor');
+    const alignInput = document.getElementById('text_align');
+
+    toolbars.forEach(function(toolbar) {
+        toolbar.addEventListener('click', function(e) {
+            const cmdBtn = e.target.closest('button[data-cmd]');
+            const alignBtn = e.target.closest('button[data-align]');
+            const fontToggle = e.target.closest('button[data-font-toggle]');
+            const fontItem = e.target.closest('button[data-font-size]');
+            if (!cmdBtn && !alignBtn) return;
+            e.preventDefault();
+
+            const target = (cmdBtn && cmdBtn.getAttribute('data-target')) || (alignBtn && alignBtn.getAttribute('data-target'));
+            const activeEditor = target === 'title' ? titleEditor : editor;
+            if (!activeEditor) return;
+            activeEditor.focus();
+
+            if (cmdBtn) {
+                tpExec(cmdBtn.getAttribute('data-cmd'));
+                return;
+            }
+            if (alignBtn) {
+                const align = alignBtn.getAttribute('data-align');
+                if (alignInput) alignInput.value = align;
+                if (activeEditor) {
+                    activeEditor.classList.remove('tp-align-left', 'tp-align-center', 'tp-align-right');
+                    activeEditor.classList.add('tp-align-' + align);
+                }
+                const group = alignBtn.closest('.tp-align-toggle');
+                if (group) {
+                    group.querySelectorAll('button.tp-tool-btn').forEach(function(b) {
+                        b.classList.remove('is-active');
+                    });
+                    alignBtn.classList.add('is-active');
+                }
+            }
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        const toggle = e.target.closest('button[data-font-toggle]');
+        const item = e.target.closest('button[data-font-size]');
+        const menu = e.target.closest('.tp-font-menu');
+
+        if (toggle) {
+            e.preventDefault();
+            const wrapper = toggle.closest('.tp-font-menu');
+            if (!wrapper) return;
+            document.querySelectorAll('.tp-font-menu.is-open').forEach(function(w) {
+                if (w !== wrapper) w.classList.remove('is-open');
+            });
+            wrapper.classList.toggle('is-open');
+            return;
+        }
+
+        if (item) {
+            e.preventDefault();
+            const size = item.getAttribute('data-font-size');
+            const target = item.getAttribute('data-target');
+            const activeEditor = target === 'title' ? titleEditor : editor;
+            if (!activeEditor || !size) return;
+            activeEditor.focus();
+            tpExec('fontSize', '7');
+            const fontEls = activeEditor.querySelectorAll('font[size="7"]');
+            fontEls.forEach(function(el) {
+                el.removeAttribute('size');
+                el.style.fontSize = size;
+            });
+            const wrapper = item.closest('.tp-font-menu');
+            if (wrapper) wrapper.classList.remove('is-open');
+            return;
+        }
+
+        if (!menu) {
+            document.querySelectorAll('.tp-font-menu.is-open').forEach(function(w) {
+                w.classList.remove('is-open');
+            });
+        }
+    });
+
+    const color = document.getElementById('tpColor');
+    if (color && editor) {
+        color.addEventListener('input', function() {
+            editor.focus();
+            tpExec('foreColor', this.value);
+        });
+    }
+
+    const titleColor = document.getElementById('tpTitleColor');
+    if (titleColor && titleEditor) {
+        titleColor.addEventListener('input', function() {
+            titleEditor.focus();
+            tpExec('foreColor', this.value);
+        });
+    }
+
+    const contentSize = document.getElementById('tpFontSize');
+    if (contentSize && editor) {
+        contentSize.addEventListener('change', function() {
+            const size = this.value;
+            if (!size) return;
+            editor.dataset.tpCurrentFontSize = size;
+            editor.focus();
+            tpExec('fontSize', '7');
+            tpNormalizeFontSize(editor, size);
+        });
+        editor.addEventListener('input', function() {
+            const size = editor.dataset.tpCurrentFontSize;
+            if (!size) return;
+            tpNormalizeFontSize(editor, size);
+        });
+    }
+
+    const titleSize = document.getElementById('tpTitleFontSize');
+    if (titleSize && titleEditor) {
+        titleSize.addEventListener('change', function() {
+            const size = this.value;
+            if (!size) return;
+            titleEditor.dataset.tpCurrentFontSize = size;
+            titleEditor.focus();
+            tpExec('fontSize', '7');
+            tpNormalizeFontSize(titleEditor, size);
+        });
+        titleEditor.addEventListener('input', function() {
+            const size = titleEditor.dataset.tpCurrentFontSize;
+            if (!size) return;
+            tpNormalizeFontSize(titleEditor, size);
+        });
+    }
+
+    if (alignInput && titleEditor) {
+        titleEditor.classList.remove('tp-align-left', 'tp-align-center', 'tp-align-right');
+        titleEditor.classList.add('tp-align-' + (alignInput.value || 'left'));
+    }
+});
+</script>
+{% endblock %}

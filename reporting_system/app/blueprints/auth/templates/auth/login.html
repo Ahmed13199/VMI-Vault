@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Reporting System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .main-content {
+        padding: 0;
+    }
+
+    .main-content > .container {
+        max-width: none;
+        padding: 0;
+    }
+
+    .main-footer {
+        display: none;
+    }
+
+    .login-shell {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: var(--spacing-2xl);
+        overflow: hidden;
+    }
+
+    .login-stack {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-xl);
+        z-index: 1;
+    }
+
+    .login-hero {
+        font-size: clamp(2.5rem, 6vw, 4.75rem);
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        line-height: 1;
+        margin: 0;
+        padding: 0;
+        text-align: center;
+        background: linear-gradient(
+            120deg,
+            rgba(242, 111, 42, 0.95),
+            rgba(212, 90, 26, 0.95),
+            rgba(234, 88, 12, 0.95),
+            rgba(242, 111, 42, 0.95)
+        );
+        background-size: 220% 220%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        text-shadow:
+            0 8px 22px rgba(0, 0, 0, 0.45),
+            0 0 10px rgba(242, 111, 42, 0.50);
+        animation:
+            vmi-vault-flow 6s ease-in-out infinite,
+            vmi-vault-glow 4.2s ease-in-out infinite;
+        user-select: none;
+    }
+
+    .login-hero::after {
+        content: "";
+        display: block;
+        width: min(460px, 70vw);
+        height: 1px;
+        margin: var(--spacing-md) auto 0;
+        background: linear-gradient(90deg, transparent, rgba(242, 111, 42, 0.65), transparent);
+        opacity: 0.75;
+    }
+
+    @keyframes vmi-vault-flow {
+        0% { background-position: 0% 50%; filter: brightness(1); }
+        50% { background-position: 100% 50%; filter: brightness(1.08); }
+        100% { background-position: 0% 50%; filter: brightness(1); }
+    }
+
+    @keyframes vmi-vault-glow {
+        0% {
+            text-shadow:
+                0 8px 22px rgba(0, 0, 0, 0.45),
+                0 0 10px rgba(242, 111, 42, 0.20);
+        }
+        12% {
+            text-shadow:
+                0 10px 24px rgba(0, 0, 0, 0.46),
+                0 0 18px rgba(242, 111, 42, 0.18),
+                0 0 34px rgba(242, 111, 42, 0.10);
+        }
+        45% {
+            text-shadow:
+                0 9px 22px rgba(0, 0, 0, 0.44),
+                0 0 12px rgba(242, 111, 42, 0.20);
+        }
+        100% {
+            text-shadow:
+                0 8px 22px rgba(0, 0, 0, 0.45),
+                0 0 10px rgba(242, 111, 42, 0.20);
+        }
+    }
+
+    .login-bg {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(900px circle at 15% 20%, rgba(6, 182, 212, 0.22), transparent 55%),
+            radial-gradient(900px circle at 85% 75%, rgba(242, 111, 42, 0.22), transparent 55%),
+            radial-gradient(1200px circle at 50% 10%, rgba(99, 102, 241, 0.18), transparent 60%),
+            linear-gradient(130deg, rgba(14, 20, 27, 0.95), rgba(20, 26, 34, 0.90));
+        filter: saturate(120%);
+    }
+
+    .login-bg::before,
+    .login-bg::after {
+        content: "";
+        position: absolute;
+        inset: -40%;
+        background:
+            radial-gradient(circle at 30% 40%, rgba(6, 182, 212, 0.25), transparent 35%),
+            radial-gradient(circle at 70% 60%, rgba(242, 111, 42, 0.22), transparent 40%),
+            radial-gradient(circle at 55% 20%, rgba(99, 102, 241, 0.20), transparent 45%);
+        animation: login-nebula 18s ease-in-out infinite;
+        transform: translate3d(0, 0, 0);
+    }
+
+    .login-bg::after {
+        opacity: 0.55;
+        filter: blur(14px);
+        animation-duration: 26s;
+    }
+
+    @keyframes login-nebula {
+        0% { transform: translate(-4%, -3%) rotate(0deg) scale(1); }
+        50% { transform: translate(4%, 3%) rotate(10deg) scale(1.03); }
+        100% { transform: translate(-4%, -3%) rotate(0deg) scale(1); }
+    }
+
+    #loginNetwork {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.70;
+        pointer-events: none;
+    }
+
+    .login-glass {
+        position: relative;
+        width: min(520px, 92vw);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(36, 48, 68, 0.56), rgba(26, 35, 50, 0.35));
+        border: 1px solid rgba(197, 207, 216, 0.16);
+        box-shadow:
+            0 18px 55px rgba(0, 0, 0, 0.55),
+            inset 0 1px 0 rgba(241, 245, 249, 0.10);
+        backdrop-filter: blur(14px);
+        overflow: hidden;
+    }
+
+    .login-glass::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(700px circle at 10% 10%, rgba(6, 182, 212, 0.12), transparent 60%);
+        pointer-events: none;
+    }
+
+    .login-logo-row {
+        position: relative;
+        padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-bottom: 1px solid rgba(197, 207, 216, 0.12);
+        background-color: rgba(20, 26, 34, 0.18);
+    }
+
+    .login-logo-row img {
+        height: 84px;
+        width: auto;
+        filter: drop-shadow(0 10px 22px rgba(0,0,0,0.50));
+    }
+
+    .login-body {
+        padding: var(--spacing-xl);
+    }
+
+    .login-form-modern .form-group {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .login-input {
+        position: relative;
+    }
+
+    .login-input input {
+        background: rgba(20, 26, 34, 0.35);
+        border: 1px solid rgba(197, 207, 216, 0.20);
+        border-radius: 12px;
+        padding: 14px 14px 14px 46px;
+        transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .login-input input:focus {
+        border-color: rgba(242, 111, 42, 0.75);
+        box-shadow: 0 0 0 4px rgba(242, 111, 42, 0.20);
+        transform: translateY(-1px);
+    }
+
+    .login-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 18px;
+        height: 18px;
+        opacity: 0.85;
+        color: var(--color-text-secondary);
+    }
+
+    .login-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-lg);
+    }
+
+    .login-actions .btn {
+        border-radius: 12px;
+        padding: 12px 16px;
+        transition: transform 0.12s ease, box-shadow 0.2s ease;
+    }
+
+    .login-actions .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+    }
+
+    .login-actions .btn:active {
+        transform: translateY(0);
+    }
+
+    .login-cta {
+        position: relative;
+        min-width: 220px;
+        border: 1px solid rgba(242, 111, 42, 0.55);
+        background: linear-gradient(135deg, rgba(242, 111, 42, 0.95), rgba(212, 90, 26, 0.95));
+        box-shadow:
+            0 14px 30px rgba(0, 0, 0, 0.45),
+            0 0 0 1px rgba(242, 111, 42, 0.12) inset;
+        overflow: hidden;
+    }
+
+    .login-cta:hover {
+        box-shadow:
+            0 18px 42px rgba(0, 0, 0, 0.55),
+            0 0 0 1px rgba(242, 111, 42, 0.16) inset,
+            0 0 28px rgba(242, 111, 42, 0.22);
+    }
+
+    .login-cta::before {
+        content: "";
+        position: absolute;
+        inset: -40% -60%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+        transform: rotate(18deg);
+        opacity: 0;
+        pointer-events: none;
+        will-change: transform, opacity;
+    }
+
+    .login-cta:hover::before {
+        opacity: 1;
+        animation: login-cta-sheen 1.25s linear infinite;
+    }
+
+    @keyframes login-cta-sheen {
+        0% { transform: translateX(-35%) rotate(18deg); opacity: 0; }
+        30% { opacity: 0.65; }
+        60% { opacity: 0.0; }
+        100% { transform: translateX(35%) rotate(18deg); opacity: 0; }
+    }
+
+    .login-badge {
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(241, 245, 249, 0.85);
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(197, 207, 216, 0.16);
+        background: rgba(20, 26, 34, 0.25);
+        white-space: nowrap;
+    }
+
+    @media (max-width: 480px) {
+        .login-head {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .login-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var canvas = document.getElementById('loginNetwork');
+        if (!canvas) {
+            return;
+        }
+
+        var ctx = canvas.getContext('2d');
+        var dpr = window.devicePixelRatio || 1;
+        var points = [];
+        var rafId = null;
+
+        function resize() {
+            var rect = canvas.getBoundingClientRect();
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function rand(min, max) {
+            return min + Math.random() * (max - min);
+        }
+
+        function init() {
+            resize();
+            points = [];
+
+            var rect = canvas.getBoundingClientRect();
+            var area = rect.width * rect.height;
+            var count = Math.max(36, Math.min(90, Math.floor(area / 14000)));
+
+            for (var i = 0; i < count; i++) {
+                points.push({
+                    x: rand(0, rect.width),
+                    y: rand(0, rect.height),
+                    vx: rand(-0.22, 0.22),
+                    vy: rand(-0.18, 0.18),
+                    r: rand(1.0, 2.2)
+                });
+            }
+        }
+
+        function tick() {
+            var rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.75)';
+            for (var i = 0; i < points.length; i++) {
+                var p = points[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < -20) p.x = rect.width + 20;
+                if (p.x > rect.width + 20) p.x = -20;
+                if (p.y < -20) p.y = rect.height + 20;
+                if (p.y > rect.height + 20) p.y = -20;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            var maxDist = Math.min(160, Math.max(110, rect.width / 7));
+            for (var a = 0; a < points.length; a++) {
+                for (var b = a + 1; b < points.length; b++) {
+                    var dx = points[a].x - points[b].x;
+                    var dy = points[a].y - points[b].y;
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < maxDist) {
+                        var alpha = 0.22 * (1 - dist / maxDist);
+                        ctx.strokeStyle = 'rgba(6, 182, 212,' + alpha.toFixed(3) + ')';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(points[a].x, points[a].y);
+                        ctx.lineTo(points[b].x, points[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            rafId = window.requestAnimationFrame(tick);
+        }
+
+        var ro = null;
+        if (window.ResizeObserver) {
+            ro = new ResizeObserver(function () {
+                init();
+            });
+            ro.observe(canvas);
+        } else {
+            window.addEventListener('resize', init);
+        }
+
+        init();
+        tick();
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden && rafId) {
+                window.cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+            if (!document.hidden && !rafId) {
+                tick();
+            }
+        });
+    })();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="login-shell">
+    <div class="login-bg"></div>
+    <canvas id="loginNetwork"></canvas>
+
+    <div class="login-stack">
+        <h1 class="login-hero">VMI Vault</h1>
+
+        <div class="login-glass">
+            <div class="login-logo-row">
+                <img src="{{ url_for('static', filename='logo_white.png') }}" alt="VMI Steel Buildings">
+            </div>
+
+            <div class="login-body">
+                <form method="POST" action="{{ url_for('auth.login') }}" class="login-form login-form-modern">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <div class="login-input">
+                            <input type="text"
+                                   id="username"
+                                   name="username"
+                                   required
+                                   autocomplete="username"
+                                   placeholder="Enter your username">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <div class="login-input">
+                            <input type="password"
+                                   id="password"
+                                   name="password"
+                                   required
+                                   autocomplete="current-password"
+                                   placeholder="Enter your password">
+                        </div>
+                    </div>
+
+                    <div class="form-group checkbox-group" style="margin-bottom: 0;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remember" id="remember">
+                            <span>Remember me</span>
+                        </label>
+                    </div>
+
+                    <div class="login-actions">
+                        <button type="submit" class="btn btn-primary login-cta">
+                            Open the Vault
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

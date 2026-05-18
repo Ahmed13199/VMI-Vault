@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Data Entry - Reporting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Data Entry</h1>
+    <p class="page-subtitle">Enter layer 1 metric values</p>
+</div>
+
+<!-- Period and Team Selection -->
+<div class="filter-bar">
+    <form method="GET" action="{{ url_for('reporting.input') }}" class="filter-form">
+        {% if is_admin %}
+        <div class="form-group inline">
+            <label for="team_id">Team:</label>
+            <select name="team_id" id="team_id" onchange="this.form.submit()">
+                <option value="">-- Select Team --</option>
+                {% for team in teams %}
+                <option value="{{ team.id }}" 
+                        {% if user_team and team.id == user_team.id %}selected{% endif %}>
+                    {{ team.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        
+        <div class="form-group inline">
+            <label for="period_id">Reporting Period:</label>
+            <select name="period_id" id="period_id" onchange="this.form.submit()">
+                <option value="">-- Select Period --</option>
+                {% for period in periods %}
+                <option value="{{ period.id }}" 
+                        {% if selected_period and period.id == selected_period.id %}selected{% endif %}>
+                    {{ period.label }} ({{ period.period_type }}) - {{ period.start_date.strftime('%m/%d/%y') }} - {{ period.end_date.strftime('%m/%d/%y') }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- Create New Period -->
+{% if current_user.can_edit_page('reporting_input') %}
+<div class="collapsible-section">
+    <button type="button" class="collapsible-toggle" onclick="toggleSection('newPeriodSection')">
+        + Create New Reporting Period
+    </button>
+    <div id="newPeriodSection" class="collapsible-content" style="display: none;">
+        <form method="POST" action="{{ url_for('reporting.input') }}" class="inline-form-group">
+            <input type="hidden" name="action" value="create_period">
+            
+            <div class="form-group inline">
+                <label for="period_type">Type:</label>
+                <select name="period_type" id="period_type">
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+            </div>
+            
+            <div class="form-group inline">
+                <label for="start_date">Start Date:</label>
+                <input type="date" name="start_date" id="start_date" required>
+            </div>
+            
+            <div class="form-group inline">
+                <label for="end_date">End Date:</label>
+                <input type="date" name="end_date" id="end_date" required>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Create Period</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if not user_team %}
+<div class="empty-state">
+    <p>Please select a team to enter data.</p>
+    {% if not is_admin %}
+    <p class="hint">You are not assigned to a team. Please contact an administrator.</p>
+    {% endif %}
+</div>
+{% elif not selected_period %}
+<div class="empty-state">
+    <p>Please select a reporting period or create a new one.</p>
+</div>
+{% elif not base_metrics %}
+<div class="empty-state">
+    <p>No base metrics are defined for {{ user_team.name }}.</p>
+    {% if current_user.can_edit_page('settings') %}
+    <p class="hint"><a href="{{ url_for('settings.create_metric') }}">Create metrics</a> in Settings first.</p>
+    {% endif %}
+</div>
+{% else %}
+
+<!-- Data Entry Form -->
+<div class="form-container">
+    <h2>{{ user_team.name }} - {{ selected_period.label }}</h2>
+    
+    <form method="POST" action="{{ url_for('reporting.input') }}" class="data-entry-form">
+        <input type="hidden" name="action" value="save_values">
+        <input type="hidden" name="period_id" value="{{ selected_period.id }}">
+        <input type="hidden" name="team_id" value="{{ user_team.id }}">
+        
+        <table class="data-table input-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Unit</th>
+                    <th>Value</th>
+                    <th>Previous week value{% if previous_period %}<br><small class="hint">{{ previous_period.label }}</small>{% endif %}</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in base_metrics %}
+                <tr>
+                    <td>
+                        <strong>{{ metric.display_name }}</strong>
+                        {% if metric.description %}
+                        <br><small class="hint">{{ metric.description }}</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ metric.unit }}</td>
+                    <td>
+                        {% if current_user.can_edit_page('reporting_input') %}
+                        <input type="number" 
+                               name="metric_{{ metric.id }}"
+                               step="any"
+                               class="input-value"
+                               placeholder="Enter value"
+                               value="{{ existing_values.get(metric.key, {}).get('value', '') }}">
+                        {% else %}
+                        {{ existing_values.get(metric.key, {}).get('value', 'N/A') }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ previous_values.get(metric.key, 'Null') }}
+                    </td>
+                    <td>
+                        {% if current_user.can_edit_page('reporting_input') %}
+                        <input type="number"
+                               name="target_{{ metric.id }}"
+                               step="any"
+                               class="input-value"
+                               placeholder="Optional target"
+                               value="{{ existing_values.get(metric.key, {}).get('target', '') }}">
+                        {% else %}
+                        {{ existing_values.get(metric.key, {}).get('target', 'N/A') }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="form-actions">
+            {% if current_user.can_edit_page('reporting_input') %}
+            <button type="submit" class="btn btn-primary">Save Values</button>
+            {% endif %}
+            <a href="{{ url_for('reporting.output', period_id=selected_period.id, team_id=user_team.id) }}" 
+               class="btn btn-secondary">View Results</a>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<script>
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

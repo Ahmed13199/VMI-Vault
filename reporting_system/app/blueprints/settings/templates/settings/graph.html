@@ -1,0 +1,778 @@
+{% extends "base.html" %}
+
+{% block title %}Metrics Graph - Visual Dependencies{% endblock %}
+
+{% block extra_css %}
+<style>
+    .graph-container {
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--radius-md);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    #metricsCanvas {
+        display: block;
+        cursor: grab;
+    }
+    
+    #metricsCanvas:active {
+        cursor: grabbing;
+    }
+    
+    .graph-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--spacing-lg);
+        margin-top: var(--spacing-lg);
+        padding: var(--spacing-md);
+        background-color: var(--color-surface);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--color-gray-200);
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+    }
+    
+    .legend-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+    }
+    
+    .legend-line {
+        width: 30px;
+        height: 2px;
+        background-color: #6b7a8f;
+    }
+    
+    .graph-controls {
+        display: flex;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .graph-controls .btn {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+    }
+    
+    .node-tooltip {
+        position: absolute;
+        background-color: var(--color-header);
+        color: var(--color-text-primary);
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--radius-md);
+        font-size: var(--font-size-sm);
+        pointer-events: none;
+        z-index: 100;
+        box-shadow: var(--shadow-lg);
+        max-width: 300px;
+        display: none;
+    }
+    
+    .node-tooltip.visible {
+        display: block;
+    }
+    
+    .tooltip-title {
+        font-weight: 600;
+        margin-bottom: var(--spacing-xs);
+        color: var(--color-primary);
+    }
+    
+    .tooltip-key {
+        font-family: monospace;
+        color: var(--color-text-muted);
+        font-size: var(--font-size-xs);
+    }
+    
+    .tooltip-formula {
+        margin-top: var(--spacing-xs);
+        padding-top: var(--spacing-xs);
+        border-top: 1px solid var(--color-gray-300);
+        font-family: monospace;
+        font-size: var(--font-size-xs);
+    }
+    
+    /* Settings Panel */
+    .settings-panel {
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--radius-md);
+        margin-top: var(--spacing-lg);
+        overflow: hidden;
+    }
+    
+    .settings-panel-header {
+        background-color: var(--color-header);
+        padding: var(--spacing-md) var(--spacing-lg);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+    }
+    
+    .settings-panel-header:hover {
+        background-color: var(--color-surface-light);
+    }
+    
+    .settings-panel-header h3 {
+        margin: 0;
+        font-size: var(--font-size-base);
+        color: var(--color-text-primary);
+    }
+    
+    .settings-panel-toggle {
+        color: var(--color-text-secondary);
+        transition: transform 0.2s;
+    }
+    
+    .settings-panel.open .settings-panel-toggle {
+        transform: rotate(180deg);
+    }
+    
+    .settings-panel-content {
+        display: none;
+        padding: var(--spacing-lg);
+    }
+    
+    .settings-panel.open .settings-panel-content {
+        display: block;
+    }
+    
+    .layer-settings {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--spacing-lg);
+    }
+    
+    .layer-setting-card {
+        background-color: var(--color-header);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+    }
+    
+    .layer-setting-card h4 {
+        margin: 0 0 var(--spacing-md) 0;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-primary);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+    }
+    
+    .layer-preview {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    
+    .setting-row {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .setting-row:last-child {
+        margin-bottom: 0;
+    }
+    
+    .setting-row label {
+        width: 60px;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+    }
+    
+    .setting-row input[type="color"] {
+        width: 50px;
+        height: 30px;
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        background: none;
+    }
+    
+    .setting-row select,
+    .setting-row input[type="range"] {
+        flex: 1;
+        background-color: var(--color-surface);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-gray-300);
+        border-radius: var(--radius-sm);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: var(--font-size-sm);
+    }
+    
+    .setting-row input[type="range"] {
+        padding: 0;
+    }
+    
+    .size-value {
+        width: 40px;
+        text-align: center;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Metrics Dependency Graph</h1>
+    <p class="page-subtitle">Visual representation of how metrics are connected</p>
+</div>
+
+<div class="graph-controls">
+    <a href="{{ url_for('settings.index') }}" class="btn btn-secondary">
+        ← Back to List
+    </a>
+    <button type="button" class="btn btn-secondary" onclick="resetView()">
+        Reset View
+    </button>
+    <button type="button" class="btn btn-secondary" onclick="togglePhysics()">
+        <span id="physicsLabel">Pause Animation</span>
+    </button>
+    <button type="button" class="btn btn-primary" onclick="toggleSettingsPanel()">
+        ⚙ Node Settings
+    </button>
+</div>
+
+<!-- Settings Panel -->
+<div id="settingsPanel" class="settings-panel">
+    <div class="settings-panel-header" onclick="toggleSettingsPanel()">
+        <h3>Layer Appearance Settings</h3>
+        <span class="settings-panel-toggle">▼</span>
+    </div>
+    <div class="settings-panel-content">
+        <div class="layer-settings" id="layerSettingsContainer">
+            {% for layer_num, settings in layer_settings.items() %}
+            <div class="layer-setting-card" data-layer="{{ layer_num }}">
+                <h4>
+                    <span class="layer-preview" id="preview-{{ layer_num }}" style="background-color: {{ settings.color }}"></span>
+                    Layer {{ layer_num }} {% if layer_num == 1 %}(Base Metrics){% else %}(Derived){% endif %}
+                </h4>
+                <div class="setting-row">
+                    <label>Color</label>
+                    <input type="color" 
+                           id="color-{{ layer_num }}" 
+                           value="{{ settings.color }}" 
+                           onchange="updateLayerSetting({{ layer_num }}, 'color', this.value)">
+                </div>
+                <div class="setting-row">
+                    <label>Shape</label>
+                    <select id="shape-{{ layer_num }}" onchange="updateLayerSetting({{ layer_num }}, 'shape', this.value)">
+                        {% for shape in shapes %}
+                        <option value="{{ shape }}" {% if settings.shape == shape %}selected{% endif %}>
+                            {{ shape|capitalize }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>Size</label>
+                    <input type="range" 
+                           id="size-{{ layer_num }}" 
+                           min="15" 
+                           max="60" 
+                           value="{{ settings.size }}"
+                           onchange="updateLayerSetting({{ layer_num }}, 'size', this.value)">
+                    <span class="size-value" id="size-value-{{ layer_num }}">{{ settings.size }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="graph-container">
+    <canvas id="metricsCanvas" width="1200" height="600"></canvas>
+    <div id="nodeTooltip" class="node-tooltip"></div>
+</div>
+
+<div class="graph-legend" id="graphLegend">
+    {% for layer_num, settings in layer_settings.items() %}
+    <div class="legend-item">
+        <span class="legend-dot" id="legend-dot-{{ layer_num }}" style="background-color: {{ settings.color }}"></span>
+        <span>Layer {{ layer_num }} {% if layer_num == 1 %}(Base){% else %}(Derived){% endif %}</span>
+    </div>
+    {% endfor %}
+    <div class="legend-item">
+        <span class="legend-line"></span>
+        <span>Dependency (arrow shows data flow)</span>
+    </div>
+</div>
+
+<div class="help-section">
+    <h3>How to Use</h3>
+    <ul>
+        <li><strong>Drag nodes:</strong> Click and drag any metric to reposition it</li>
+        <li><strong>Pan:</strong> Click and drag on empty space to move the view</li>
+        <li><strong>Hover:</strong> Hover over a node to see metric details</li>
+        <li><strong>Arrows:</strong> Show which metrics feed into derived calculations</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    // Graph data from server
+    const nodes = {{ nodes | tojson }};
+    const edges = {{ edges | tojson }};
+    let layerSettings = {{ layer_settings | tojson }};
+    
+    // Canvas setup
+    const canvas = document.getElementById('metricsCanvas');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('nodeTooltip');
+    
+    // Resize canvas to container
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth;
+        canvas.height = Math.max(500, window.innerHeight - 450);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Physics settings
+    let physicsEnabled = true;
+    const REPULSION = 5000;
+    const ATTRACTION = 0.01;
+    const DAMPING = 0.9;
+    const CENTER_GRAVITY = 0.01;
+    
+    // Get node size from settings
+    function getNodeSize(layer) {
+        return layerSettings[layer]?.size || 30;
+    }
+    
+    // Get node color from settings
+    function getNodeColor(layer) {
+        return layerSettings[layer]?.color || '#6b7280';
+    }
+    
+    // Get node shape from settings
+    function getNodeShape(layer) {
+        return layerSettings[layer]?.shape || 'circle';
+    }
+    
+    // Node positions and velocities
+    const nodeMap = {};
+    nodes.forEach((node, i) => {
+        const layerIndex = nodes.filter(n => n.layer === node.layer && nodes.indexOf(n) < i).length;
+        
+        nodeMap[node.id] = {
+            ...node,
+            x: 150 + (node.layer - 1) * 250 + Math.random() * 50,
+            y: 100 + (layerIndex * 120) + Math.random() * 30,
+            vx: 0,
+            vy: 0
+        };
+    });
+    
+    // Interaction state
+    let draggedNode = null;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+    let offset = { x: 0, y: 0 };
+    let hoveredNode = null;
+    
+    // Get mouse position relative to canvas
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: e.clientX - rect.left - offset.x,
+            y: e.clientY - rect.top - offset.y
+        };
+    }
+    
+    // Find node at position
+    function getNodeAt(x, y) {
+        for (const id in nodeMap) {
+            const node = nodeMap[id];
+            const size = getNodeSize(node.layer);
+            const dx = x - node.x;
+            const dy = y - node.y;
+            if (dx * dx + dy * dy < size * size) {
+                return node;
+            }
+        }
+        return null;
+    }
+    
+    // Mouse events
+    canvas.addEventListener('mousedown', (e) => {
+        const pos = getMousePos(e);
+        const node = getNodeAt(pos.x, pos.y);
+        
+        if (node) {
+            draggedNode = node;
+            canvas.style.cursor = 'grabbing';
+        } else {
+            isPanning = true;
+            panStart = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+            canvas.style.cursor = 'grabbing';
+        }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        const pos = getMousePos(e);
+        
+        if (draggedNode) {
+            draggedNode.x = pos.x;
+            draggedNode.y = pos.y;
+            draggedNode.vx = 0;
+            draggedNode.vy = 0;
+        } else if (isPanning) {
+            offset.x = e.clientX - panStart.x;
+            offset.y = e.clientY - panStart.y;
+        } else {
+            const node = getNodeAt(pos.x, pos.y);
+            if (node !== hoveredNode) {
+                hoveredNode = node;
+                updateTooltip(e);
+            }
+            canvas.style.cursor = node ? 'pointer' : 'grab';
+        }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+        draggedNode = null;
+        isPanning = false;
+        canvas.style.cursor = hoveredNode ? 'pointer' : 'grab';
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+        draggedNode = null;
+        isPanning = false;
+        hoveredNode = null;
+        tooltip.classList.remove('visible');
+    });
+    
+    // Tooltip
+    function updateTooltip(e) {
+        if (hoveredNode) {
+            let html = `
+                <div class="tooltip-title">${hoveredNode.label}</div>
+                <div class="tooltip-key">${hoveredNode.id} (${hoveredNode.unit})</div>
+            `;
+            if (hoveredNode.is_derived && hoveredNode.formula) {
+                html += `<div class="tooltip-formula">Formula: ${hoveredNode.formula}</div>`;
+            }
+            tooltip.innerHTML = html;
+            tooltip.style.left = (e.clientX - canvas.getBoundingClientRect().left + 15) + 'px';
+            tooltip.style.top = (e.clientY - canvas.getBoundingClientRect().top + 15) + 'px';
+            tooltip.classList.add('visible');
+        } else {
+            tooltip.classList.remove('visible');
+        }
+    }
+    
+    canvas.addEventListener('mousemove', updateTooltip);
+    
+    // Physics simulation
+    function applyPhysics() {
+        if (!physicsEnabled) return;
+        
+        const nodeList = Object.values(nodeMap);
+        
+        // Repulsion between nodes
+        for (let i = 0; i < nodeList.length; i++) {
+            for (let j = i + 1; j < nodeList.length; j++) {
+                const a = nodeList[i];
+                const b = nodeList[j];
+                
+                let dx = b.x - a.x;
+                let dy = b.y - a.y;
+                let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                
+                const force = REPULSION / (dist * dist);
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                
+                if (a !== draggedNode) {
+                    a.vx -= fx;
+                    a.vy -= fy;
+                }
+                if (b !== draggedNode) {
+                    b.vx += fx;
+                    b.vy += fy;
+                }
+            }
+        }
+        
+        // Attraction along edges
+        edges.forEach(edge => {
+            const from = nodeMap[edge.from];
+            const to = nodeMap[edge.to];
+            if (!from || !to) return;
+            
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            
+            const force = dist * ATTRACTION;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            
+            if (from !== draggedNode) {
+                from.vx += fx;
+                from.vy += fy;
+            }
+            if (to !== draggedNode) {
+                to.vx -= fx;
+                to.vy -= fy;
+            }
+        });
+        
+        // Center gravity and layer alignment
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        nodeList.forEach(node => {
+            if (node === draggedNode) return;
+            
+            const size = getNodeSize(node.layer);
+            
+            node.vx += (centerX - node.x) * CENTER_GRAVITY;
+            node.vy += (centerY - node.y) * CENTER_GRAVITY;
+            
+            const targetX = 150 + (node.layer - 1) * 250;
+            node.vx += (targetX - node.x) * 0.02;
+            
+            node.vx *= DAMPING;
+            node.vy *= DAMPING;
+            node.x += node.vx;
+            node.y += node.vy;
+            
+            node.x = Math.max(size, Math.min(canvas.width - size, node.x));
+            node.y = Math.max(size, Math.min(canvas.height - size, node.y));
+        });
+    }
+    
+    // Draw shape
+    function drawShape(x, y, size, shape) {
+        ctx.beginPath();
+        switch (shape) {
+            case 'circle':
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                break;
+            case 'square':
+                ctx.rect(x - size, y - size, size * 2, size * 2);
+                break;
+            case 'rectangle':
+                ctx.rect(x - size * 1.3, y - size * 0.8, size * 2.6, size * 1.6);
+                break;
+            case 'diamond':
+                ctx.moveTo(x, y - size);
+                ctx.lineTo(x + size, y);
+                ctx.lineTo(x, y + size);
+                ctx.lineTo(x - size, y);
+                ctx.closePath();
+                break;
+            case 'hexagon':
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i - Math.PI / 6;
+                    const px = x + size * Math.cos(angle);
+                    const py = y + size * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                break;
+            default:
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+        }
+    }
+    
+    // Draw arrow
+    function drawArrow(fromNode, toNode) {
+        const fromSize = getNodeSize(fromNode.layer);
+        const toSize = getNodeSize(toNode.layer);
+        
+        const headLen = 12;
+        const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x);
+        
+        const endX = toNode.x - Math.cos(angle) * toSize;
+        const endY = toNode.y - Math.sin(angle) * toSize;
+        const startX = fromNode.x + Math.cos(angle) * fromSize;
+        const startY = fromNode.y + Math.sin(angle) * fromSize;
+        
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = '#6b7a8f';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(
+            endX - headLen * Math.cos(angle - Math.PI / 6),
+            endY - headLen * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+            endX - headLen * Math.cos(angle + Math.PI / 6),
+            endY - headLen * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fillStyle = '#6b7a8f';
+        ctx.fill();
+    }
+    
+    // Render
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.translate(offset.x, offset.y);
+        
+        // Draw edges
+        edges.forEach(edge => {
+            const from = nodeMap[edge.from];
+            const to = nodeMap[edge.to];
+            if (from && to) {
+                drawArrow(from, to);
+            }
+        });
+        
+        // Draw nodes
+        Object.values(nodeMap).forEach(node => {
+            const size = getNodeSize(node.layer);
+            const color = getNodeColor(node.layer);
+            const shape = getNodeShape(node.layer);
+            
+            // Draw shape
+            drawShape(node.x, node.y, size, shape);
+            
+            // Fill color (lighter on hover)
+            if (hoveredNode === node) {
+                ctx.fillStyle = lightenColor(color, 20);
+            } else {
+                ctx.fillStyle = color;
+            }
+            ctx.fill();
+            
+            // Border
+            ctx.strokeStyle = hoveredNode === node ? '#fff' : 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = hoveredNode === node ? 3 : 2;
+            ctx.stroke();
+            
+            // Label
+            ctx.fillStyle = '#fff';
+            const fontSize = Math.max(9, Math.min(12, size / 2.5));
+            ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            let label = node.label;
+            const maxChars = Math.floor(size / 5);
+            if (label.length > maxChars) {
+                label = label.substring(0, maxChars - 1) + '…';
+            }
+            ctx.fillText(label, node.x, node.y);
+            
+            // Layer indicator
+            ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillText('L' + node.layer, node.x, node.y + size + 12);
+        });
+        
+        ctx.restore();
+        
+        applyPhysics();
+        requestAnimationFrame(render);
+    }
+    
+    // Lighten color helper
+    function lightenColor(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min(255, (num >> 16) + amt);
+        const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+        const B = Math.min(255, (num & 0x0000FF) + amt);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+    }
+    
+    // Controls
+    window.resetView = function() {
+        offset = { x: 0, y: 0 };
+        
+        nodes.forEach(node => {
+            const layerIndex = nodes.filter(n => n.layer === node.layer && nodes.indexOf(n) < nodes.indexOf(node)).length;
+            const n = nodeMap[node.id];
+            n.x = 150 + (node.layer - 1) * 250;
+            n.y = 100 + layerIndex * 120;
+            n.vx = 0;
+            n.vy = 0;
+        });
+    };
+    
+    window.togglePhysics = function() {
+        physicsEnabled = !physicsEnabled;
+        document.getElementById('physicsLabel').textContent = 
+            physicsEnabled ? 'Pause Animation' : 'Resume Animation';
+    };
+    
+    // Settings panel toggle
+    window.toggleSettingsPanel = function() {
+        const panel = document.getElementById('settingsPanel');
+        panel.classList.toggle('open');
+    };
+    
+    // Update layer setting via API
+    window.updateLayerSetting = function(layer, property, value) {
+        // Update size display
+        if (property === 'size') {
+            document.getElementById('size-value-' + layer).textContent = value;
+        }
+        
+        // Update preview
+        if (property === 'color') {
+            document.getElementById('preview-' + layer).style.backgroundColor = value;
+            const legendDot = document.getElementById('legend-dot-' + layer);
+            if (legendDot) legendDot.style.backgroundColor = value;
+        }
+        
+        // Update local settings immediately for responsiveness
+        if (!layerSettings[layer]) {
+            layerSettings[layer] = { layer: layer, color: '#6b7280', shape: 'circle', size: 30 };
+        }
+        layerSettings[layer][property] = property === 'size' ? parseInt(value) : value;
+        
+        // Save to database
+        fetch(`{{ url_for('settings.update_graph_settings', layer=0) }}`.replace('/0', '/' + layer), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ [property]: value })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                layerSettings[layer] = data.setting;
+            }
+        })
+        .catch(err => console.error('Failed to save setting:', err));
+    };
+    
+    // Start rendering
+    render();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Categories{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Categories</h1>
+    <p class="page-subtitle">Manage metric categories and sub-categories</p>
+</div>
+
+<div class="actions-bar">
+    <a href="{{ url_for('settings.index') }}" class="btn btn-secondary">
+        Back to Metrics
+    </a>
+</div>
+
+<div class="tabs" role="tablist" aria-label="Category Management">
+    <button type="button" class="tab-button active" data-tab-target="tabCategories" aria-selected="true">Categories</button>
+    <button type="button" class="tab-button" data-tab-target="tabSubCategories" aria-selected="false">Sub-categories</button>
+</div>
+
+<div id="tabCategories" class="tab-panel active" role="tabpanel">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Sub-categories</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                <tr>
+                    <td>
+                        <div class="inline-edit" data-inline-edit>
+                            <span class="inline-edit-view" data-inline-view>{{ category.name }}</span>
+                            <form method="POST" action="{{ url_for('settings.rename_category', category_id=category.id) }}" class="inline-edit-form is-hidden" data-inline-form>
+                                <input type="text" name="name" value="{{ category.name }}" required>
+                                <button type="submit" class="btn btn-small">Save</button>
+                                <button type="button" class="btn btn-small btn-secondary" data-inline-cancel>Cancel</button>
+                            </form>
+                        </div>
+                    </td>
+                    <td>{{ category.sub_categories|length if category.sub_categories else 0 }}</td>
+                    <td class="actions row-actions">
+                        <button type="button" class="btn btn-small btn-secondary" data-inline-edit-btn>Edit</button>
+                        <form method="POST" action="{{ url_for('settings.delete_category', category_id=category.id) }}" class="inline-form"
+                              onsubmit="return confirm('Delete this category? This will be blocked if any metric uses it.');">
+                            <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-row">No categories yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="tabSubCategories" class="tab-panel" role="tabpanel">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sub-category</th>
+                    <th>Category</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sub in (sub_categories or []) %}
+                <tr>
+                    <td>
+                        <div class="inline-edit" data-inline-edit>
+                            <span class="inline-edit-view" data-inline-view>{{ sub.name }}</span>
+                            <form method="POST" action="{{ url_for('settings.rename_sub_category', sub_category_id=sub.id) }}" class="inline-edit-form is-hidden" data-inline-form>
+                                <input type="text" name="name" value="{{ sub.name }}" required>
+                                <button type="submit" class="btn btn-small">Save</button>
+                                <button type="button" class="btn btn-small btn-secondary" data-inline-cancel>Cancel</button>
+                            </form>
+                        </div>
+                    </td>
+                    <td>{{ sub.category.name if sub.category else '' }}</td>
+                    <td class="actions row-actions">
+                        <button type="button" class="btn btn-small btn-secondary" data-inline-edit-btn>Edit</button>
+                        <form method="POST" action="{{ url_for('settings.delete_sub_category', sub_category_id=sub.id) }}" class="inline-form"
+                              onsubmit="return confirm('Delete this sub-category? This will be blocked if any metric uses it.');">
+                            <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="empty-row">No sub-categories yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(() => {
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button[data-tab-target]'));
+    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+
+    function activateTab(targetId) {
+        tabButtons.forEach(btn => {
+            const active = btn.getAttribute('data-tab-target') === targetId;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        tabPanels.forEach(panel => {
+            panel.classList.toggle('active', panel.id === targetId);
+        });
+        try {
+            localStorage.setItem('settingsCategoriesActiveTab', targetId);
+        } catch (e) {}
+    }
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => activateTab(btn.getAttribute('data-tab-target')));
+    });
+
+    try {
+        const saved = localStorage.getItem('settingsCategoriesActiveTab');
+        if (saved && document.getElementById(saved)) {
+            activateTab(saved);
+        }
+    } catch (e) {}
+
+    function setInlineEditState(wrapper, isEditing) {
+        const view = wrapper.querySelector('[data-inline-view]');
+        const form = wrapper.querySelector('[data-inline-form]');
+        if (view) view.classList.toggle('is-hidden', isEditing);
+        if (form) form.classList.toggle('is-hidden', !isEditing);
+        const editBtn = wrapper.closest('tr')?.querySelector('[data-inline-edit-btn]');
+        if (editBtn) editBtn.classList.toggle('is-hidden', isEditing);
+        if (isEditing) {
+            const input = form?.querySelector('input');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }
+    }
+
+    document.querySelectorAll('[data-inline-edit-btn]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tr = btn.closest('tr');
+            const wrapper = tr?.querySelector('[data-inline-edit]');
+            if (wrapper) setInlineEditState(wrapper, true);
+        });
+    });
+
+    document.querySelectorAll('[data-inline-cancel]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const wrapper = btn.closest('[data-inline-edit]');
+            if (wrapper) setInlineEditState(wrapper, false);
+        });
+    });
+})();
+</script>
+{% endblock %}

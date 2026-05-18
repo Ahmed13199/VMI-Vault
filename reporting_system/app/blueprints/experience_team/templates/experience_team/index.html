@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Experience Team{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Experience Team</h1>
+    <p class="page-subtitle">Deals queue</p>
+</div>
+
+<div class="actions-bar">
+    {% if current_user.can_edit_page('experience_team') %}
+    <a href="{{ url_for('experience_team.create_deal') }}" class="btn btn-primary">+ Add Deal</a>
+    {% endif %}
+</div>
+
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Deal</th>
+                <th>Client</th>
+                <th>Step</th>
+                <th>Paid</th>
+                <th>Step Cost</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in deals %}
+            <tr>
+                <td>{{ d.deal_name }}</td>
+                <td>{{ d.client_name or '-' }}</td>
+                <td>{{ (d.step_type or '')|capitalize }}</td>
+                <td>${{ "{:,.2f}".format(d.client_paid_so_far or 0) }}</td>
+                <td>${{ "{:,.2f}".format(d.step_cost or 0) }}</td>
+                <td>
+                    {% if d.acceptance_status == 'accepted' %}
+                        <span class="status-active">Accepted</span>
+                    {% else %}
+                        <span class="status-inactive">Pending</span>
+                    {% endif %}
+                </td>
+                <td class="actions">
+                    {% if current_user.can_edit_page('experience_team') %}
+                    <a class="btn btn-small" href="{{ url_for('experience_team.edit_deal', deal_id=d.id) }}">Edit</a>
+
+                    {% if d.acceptance_status != 'accepted' %}
+                    <form method="post" action="{{ url_for('experience_team.accept_deal', deal_id=d.id) }}" class="inline-form">
+                        <button type="submit" class="btn btn-small btn-secondary">Mark Accepted</button>
+                    </form>
+                    {% endif %}
+
+                    <form method="post" action="{{ url_for('experience_team.delete_deal', deal_id=d.id) }}" class="inline-form"
+                          onsubmit="return confirm('Delete this deal?');">
+                        <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                    </form>
+                    {% else %}
+                    <span class="status-inactive">View only</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="empty-row">No deals yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

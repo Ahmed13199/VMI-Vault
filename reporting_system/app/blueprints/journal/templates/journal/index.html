@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Journal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Journal</h1>
+</div>
+
+<div class="journal-toolbar">
+    {% if current_user.can_edit_page('journal') %}
+    <a class="btn btn-primary" href="{{ url_for('journal.create_table') }}">Create Table</a>
+    {% endif %}
+</div>
+
+{% if tables and tables|length > 0 %}
+<div class="journal-table-list">
+    {% for t in tables %}
+    <div class="journal-table-card">
+        <a class="journal-table-card-link" href="{{ url_for('journal.edit_table', table_id=t.id) }}">
+            <div class="journal-table-title">{{ t.name }}</div>
+            <div class="journal-table-meta">Updated {{ t.updated_at.strftime('%Y-%m-%d %H:%M') if t.updated_at else '' }}</div>
+        </a>
+        <div class="journal-table-actions">
+            <a class="btn btn-small btn-secondary" href="{{ url_for('journal.edit_table', table_id=t.id) }}">{{ 'Edit' if current_user.can_edit_page('journal') else 'View' }}</a>
+            {% if current_user.can_edit_page('journal') %}
+            <form method="POST" action="{{ url_for('journal.delete_table', table_id=t.id) }}" onsubmit="return confirm('Delete this table? This cannot be undone.');">
+                <button type="submit" class="btn btn-small btn-danger">Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No journal tables yet.</p>
+    <p class="hint">Create your first table to get started.</p>
+</div>
+{% endif %}
+{% endblock %}

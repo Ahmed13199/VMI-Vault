@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Reporting System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p class="page-subtitle">KPI Overview</p>
+</div>
+
+<!-- Period Filter -->
+<div class="filter-bar">
+    <form method="GET" action="{{ url_for('dashboard.index') }}" class="filter-form">
+        <div class="form-group inline">
+            <label for="period_id">Reporting Period:</label>
+            <select name="period_id" id="period_id" onchange="this.form.submit()">
+                <option value="">-- Select Period --</option>
+                {% for period in periods %}
+                <option value="{{ period.id }}" 
+                        {% if selected_period and period.id == selected_period.id %}selected{% endif %}>
+                    {{ period.label }} ({{ period.period_type }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if not selected_period %}
+<div class="empty-state">
+    <p>Please select a reporting period to view metrics.</p>
+    {% if not periods %}
+    <p class="hint">No reporting periods have been created yet. 
+       <a href="{{ url_for('reporting.input') }}">Create one</a> to get started.</p>
+    {% endif %}
+</div>
+{% elif not dashboard_data %}
+<div class="empty-state">
+    <p>No team data available.</p>
+    {% if not current_user.team and not current_user.is_admin() %}
+    <p class="hint">You are not assigned to a team. Please contact an administrator.</p>
+    {% endif %}
+</div>
+{% else %}
+
+<!-- Dashboard Content -->
+{% for team_data in dashboard_data %}
+<section class="team-section">
+    <h2 class="section-title">{{ team_data.team.name }}</h2>
+    
+    <!-- Base Metrics (Layer 1) -->
+    <div class="metrics-section">
+        <h3>Base Metrics</h3>
+        <div class="kpi-cards">
+            {% for item in team_data.base_metrics %}
+            <div class="kpi-card">
+                <div class="kpi-label">{{ item.metric.display_name }}</div>
+                <div class="kpi-value">{{ item.formatted }}</div>
+                <div class="kpi-unit">{{ item.metric.unit }}</div>
+            </div>
+            {% else %}
+            <p class="no-data">No base metrics defined.</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Derived Metrics (Layer 2+) -->
+    <div class="metrics-section">
+        <h3>Derived Metrics</h3>
+        <div class="kpi-cards">
+            {% for item in team_data.derived_metrics %}
+            <div class="kpi-card derived" title="Formula: {{ item.metric.formula }}">
+                <div class="kpi-label">{{ item.metric.display_name }}</div>
+                <div class="kpi-value {% if item.value is none %}error{% endif %}">
+                    {{ item.formatted }}
+                </div>
+                <div class="kpi-unit">{{ item.metric.unit }}</div>
+                <div class="kpi-layer">Layer {{ item.metric.layer }}</div>
+            </div>
+            {% else %}
+            <p class="no-data">No derived metrics defined.</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endfor %}
+
+{% endif %}
+{% endblock %}

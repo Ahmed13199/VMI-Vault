@@ -1,0 +1,948 @@
+{% extends "base.html" %}
+
+{% block title %}Results - Reporting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Results</h1>
+    <p class="page-subtitle">View all metrics for a reporting period</p>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+    <form method="GET" action="{{ url_for('reporting.output') }}" class="filter-form">
+        <div class="form-group inline">
+            <label for="team_id">Team:</label>
+            <select name="team_id" id="team_id" onchange="this.form.submit()">
+                <option value="">-- Select Team --</option>
+                {% for team in teams %}
+                <option value="{{ team.id }}" 
+                        {% if selected_team and team.id == selected_team.id %}selected{% endif %}>
+                    {{ team.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group inline">
+            <label for="period_id">Reporting Period:</label>
+            <select name="period_id" id="period_id" onchange="this.form.submit()">
+                <option value="">-- Select Period --</option>
+                {% for period in periods %}
+                <option value="{{ period.id }}" 
+                        {% if selected_period and period.id == selected_period.id %}selected{% endif %}>
+                    {{ period.label }} ({{ period.period_type }}) - {{ period.start_date.strftime('%m/%d/%y') }} - {{ period.end_date.strftime('%m/%d/%y') }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if not selected_team %}
+<div class="empty-state">
+    <p>Please select a team to view results.</p>
+</div>
+{% elif not selected_period %}
+<div class="empty-state">
+    <p>Please select a reporting period.</p>
+</div>
+{% else %}
+
+{% set ns = namespace(base_total=0, base_filled=0, derived_total=0, derived_ok=0) %}
+{% for item in base_results %}
+{% set ns.base_total = ns.base_total + 1 %}
+{% if item.value is not none %}
+{% set ns.base_filled = ns.base_filled + 1 %}
+{% endif %}
+{% endfor %}
+{% for item in derived_results %}
+{% set ns.derived_total = ns.derived_total + 1 %}
+{% if item.value is not none %}
+{% set ns.derived_ok = ns.derived_ok + 1 %}
+{% endif %}
+{% endfor %}
+
+<div class="results-container" data-results-page>
+    <div class="results-header">
+        <div>
+            <h2>{{ selected_team.name }} <span class="results-title-sep">/</span> {{ selected_period.label }}</h2>
+            <p class="period-dates">
+                {{ selected_period.start_date.strftime('%B %d, %Y') }} - 
+                {{ selected_period.end_date.strftime('%B %d, %Y') }}
+            </p>
+        </div>
+        <div class="results-actions">
+            <a href="{{ url_for('reporting.input', period_id=selected_period.id, team_id=selected_team.id) }}" 
+               class="btn btn-secondary">Edit Values</a>
+            <a href="{{ url_for('dashboard.index', period_id=selected_period.id) }}" 
+               class="btn btn-secondary">View Dashboard</a>
+        </div>
+    </div>
+
+    <div class="results-kpis kpi-cards">
+        <div class="kpi-card">
+            <div class="kpi-label">Base metrics</div>
+            <div class="kpi-value">{{ ns.base_total }}</div>
+            <div class="kpi-unit">{{ ns.base_filled }} filled / {{ ns.base_total - ns.base_filled }} missing</div>
+        </div>
+        <div class="kpi-card derived">
+            <div class="kpi-label">Derived metrics</div>
+            <div class="kpi-value">{{ ns.derived_total }}</div>
+            <div class="kpi-unit">{{ ns.derived_ok }} computed / {{ ns.derived_total - ns.derived_ok }} failed</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total metrics</div>
+            <div class="kpi-value">{{ ns.base_total + ns.derived_total }}</div>
+            <div class="kpi-unit">Across base + derived</div>
+        </div>
+    </div>
+
+    <div class="results-toolbar">
+        <div class="results-search">
+            <label class="sr-only" for="results_search">Search metrics</label>
+            <input id="results_search" type="text" class="results-search-input" data-results-search placeholder="Search by metric name or key...">
+        </div>
+        <div class="results-tabs" role="tablist" aria-label="Results sections">
+            <button type="button" class="results-tab active" data-results-tab="base" role="tab" aria-selected="true">Base</button>
+            <button type="button" class="results-tab" data-results-tab="derived" role="tab" aria-selected="false">Derived</button>
+            <button type="button" class="results-tab" data-results-tab="graphs" role="tab" aria-selected="false">Graphs</button>
+        </div>
+        <div class="results-view-switch" role="group" aria-label="Results view">
+            <button type="button" class="results-view-btn active" data-results-view="table" aria-pressed="true" title="Table view" aria-label="Table view">
+                <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M8 6v12M16 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <button type="button" class="results-view-btn" data-results-view="grid" aria-pressed="false" title="Card view" aria-label="Card view">
+                <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="results-panels">
+        <section class="results-panel active" data-results-panel="base" role="tabpanel">
+            <div class="results-section-header">
+                <h3>Base Metrics (Layer 1)</h3>
+                <div class="results-section-tools">
+                    <span class="results-section-meta">{{ ns.base_filled }} / {{ ns.base_total }} filled</span>
+                    <button type="button" class="results-icon-btn" data-toggle-keys aria-label="Show metric keys" title="Show/Hide metric keys">
+                        <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% if base_grouped and base_grouped|length > 0 %}
+            <div class="results-category-tabs" role="tablist" aria-label="Base metric categories">
+                {% for cat, subs in base_grouped.items() %}
+                <button type="button" class="results-category-tab {% if loop.first %}active{% endif %}" data-category-tab="{{ loop.index0 }}" aria-selected="{% if loop.first %}true{% else %}false{% endif %}">{{ cat }}</button>
+                {% endfor %}
+            </div>
+
+            <div class="results-category-panels">
+                {% for cat, subs in base_grouped.items() %}
+                <div class="results-category-panel {% if loop.first %}active{% endif %}" data-category-panel="{{ loop.index0 }}" {% if not loop.first %}hidden{% endif %}>
+                    <div class="results-view" data-results-view-container="table">
+                        <div class="results-table-container">
+                            <table class="data-table results-table" data-results-table>
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Value</th>
+                                    <th>Target</th>
+                                    <th>Goal</th>
+                                    <th>Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sub_name, items in subs.items() %}
+                                <tr class="results-subcategory-row" data-results-subheader>
+                                    <td colspan="5"><span class="results-subcategory-title">{{ sub_name }}</span></td>
+                                </tr>
+                                {% for item in items %}
+                                <tr data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                    <td>
+                                        <div class="metric-head">
+                                            <div class="metric-name">{{ item.metric.display_name }}</div>
+                                            {% if item.metric.description %}
+                                            <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
+                                                <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                        <code class="metric-key">{{ item.metric.key }}</code>
+                                    </td>
+                                    <td class="value-cell {% if item.value is none %}no-data{% endif %}">
+                                        {{ item.formatted }}
+                                    </td>
+                                    <td class="value-cell {% if item.target is none %}no-data{% endif %}">
+                                        {% if item.target is not none %}
+                                            {{ item.target }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.goal_status == 'achieved' %}
+                                            <span class="results-pill">Achieved</span>
+                                        {% elif item.goal_status == 'not_achieved' %}
+                                            <span class="results-pill">Not achieved</span>
+                                        {% else %}
+                                            <span class="no-data">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="results-pill">{{ item.metric.unit }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endfor %}
+                                <tr class="empty-row" data-results-empty style="display:none;">
+                                    <td colspan="5">No metrics match your search.</td>
+                                </tr>
+                            </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="results-view" data-results-view-container="grid" hidden>
+                        <div class="results-subcategory-grid">
+                            {% for sub_name, items in subs.items() %}
+                            <div class="results-subcategory-block" data-subcategory-block>
+                                <div class="results-subcategory-header">{{ sub_name }}</div>
+                                <div class="results-grid" data-results-grid>
+                                    {% for item in items %}
+                                    <div class="metric-card" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                        <div class="metric-card-header">
+                                            <div class="metric-head">
+                                                <div class="metric-name">{{ item.metric.display_name }}</div>
+                                                {% if item.metric.description %}
+                                                <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
+                                                    <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                        <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                        <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    </svg>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                            <code class="metric-key">{{ item.metric.key }}</code>
+                                        </div>
+                                        <div class="metric-card-body">
+                                            <div class="metric-card-value-row">
+                                                <div class="metric-card-value {% if item.value is none %}no-data{% endif %}">
+                                                    {{ item.formatted }}
+                                                    {% if item.target is not none and item.target_formatted %}
+                                                        <span class="metric-target-inline">
+                                                            / {{ item.target_formatted }}
+                                                            {% if item.target_diff_pct is not none or item.target_diff is not none %}
+                                                                <span class="metric-target-diff metric-delta metric-delta-{{ item.target_delta_status }}" title="Compared to target">
+                                                                    {% if item.target_diff_pct is not none %}
+                                                                        {{ '%+.1f%%'|format(item.target_diff_pct) }}
+                                                                    {% else %}
+                                                                        {{ '%+.2f'|format(item.target_diff) }}
+                                                                    {% endif %}
+                                                                </span>
+                                                            {% endif %}
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="metric-delta metric-delta-{{ item.delta_status }}" title="Compared to previous period">
+                                                    {% if item.delta_pct is not none and item.delta_pct > 0 %}
+                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                        <path d="M12 5l7 7-1.4 1.4L13 8.8V19h-2V8.8L6.4 13.4 5 12l7-7Z" fill="currentColor"/>
+                                                    </svg>
+                                                    {% elif item.delta_pct is not none and item.delta_pct < 0 %}
+                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                        <path d="M12 19l-7-7 1.4-1.4L11 15.2V5h2v10.2l4.6-4.6L19 12l-7 7Z" fill="currentColor"/>
+                                                    </svg>
+                                                    {% else %}
+                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                        <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                    </svg>
+                                                    {% endif %}
+                                                    <span class="metric-delta-text">
+                                                        {% if item.delta_pct is not none %}
+                                                            {{ '%+.1f%%'|format(item.delta_pct) }}
+                                                        {% else %}
+                                                            +0.0%
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="metric-card-meta">
+                                                <span class="results-pill">{{ item.metric.unit }}</span>
+                                                {% if item.goal_status == 'achieved' %}
+                                                    <span class="results-pill">Achieved</span>
+                                                {% elif item.goal_status == 'not_achieved' %}
+                                                    <span class="results-pill">Not achieved</span>
+                                                {% endif %}
+                                            </div>
+
+                                            <details class="metric-history">
+                                                <summary class="metric-history-btn">Past 3 weeks</summary>
+                                                <div class="metric-history-list">
+                                                    {% if item.history and item.history|length > 0 %}
+                                                        {% for h in item.history %}
+                                                        <div class="metric-history-row">
+                                                            <div class="metric-history-period">{{ h.period.label }}</div>
+                                                            <div class="metric-history-value">{{ h.formatted }}</div>
+                                                        </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <div class="metric-history-empty">Null</div>
+                                                    {% endif %}
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="results-grid-empty" data-results-grid-empty hidden>No metrics match your search.</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="no-data">No base metrics defined.</p>
+            {% endif %}
+        </section>
+
+        <section class="results-panel" data-results-panel="derived" role="tabpanel" hidden>
+            <div class="results-section-header">
+                <h3>Derived Metrics (Layer 2+)</h3>
+                <div class="results-section-tools">
+                    <span class="results-section-meta">{{ ns.derived_ok }} / {{ ns.derived_total }} computed</span>
+                    <button type="button" class="results-icon-btn" data-toggle-keys aria-label="Show metric keys" title="Show/Hide metric keys">
+                        <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% if derived_results %}
+            <div class="results-view" data-results-view-container="table">
+                <div class="results-table-container">
+                    <table class="data-table results-table" data-results-table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                            <th>Unit</th>
+                            <th>Layer</th>
+                            <th>Formula</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in derived_results %}
+                        <tr data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ item.metric.layer)|lower }}">
+                            <td>
+                                <div class="metric-head">
+                                    <div class="metric-name">{{ item.metric.display_name }}</div>
+                                    {% if item.metric.description %}
+                                    <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
+                                        <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                <code class="metric-key">{{ item.metric.key }}</code>
+                            </td>
+                            <td class="value-cell {% if item.value is none %}error{% endif %}">
+                                {{ item.formatted }}
+                            </td>
+                            <td>
+                                <span class="results-pill">{{ item.metric.unit }}</span>
+                            </td>
+                            <td>
+                                <span class="results-pill results-pill-accent">L{{ item.metric.layer }}</span>
+                            </td>
+                            <td>
+                                {% if item.metric.formula %}
+                                <details class="results-details">
+                                    <summary>View</summary>
+                                    <code class="formula">{{ item.metric.formula }}</code>
+                                </details>
+                                {% else %}
+                                <span class="no-data">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="empty-row" data-results-empty style="display:none;">
+                            <td colspan="5">No metrics match your search.</td>
+                        </tr>
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="results-view" data-results-view-container="grid" hidden>
+                <div class="results-grid" data-results-grid>
+                    {% for item in derived_results %}
+                    <div class="metric-card" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ item.metric.layer)|lower }}">
+                        <div class="metric-card-header">
+                            <div class="metric-head">
+                                <div class="metric-name">{{ item.metric.display_name }}</div>
+                                {% if item.metric.description %}
+                                <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
+                                    <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                            <code class="metric-key">{{ item.metric.key }}</code>
+                        </div>
+                        <div class="metric-card-body">
+                            <div class="metric-card-value-row">
+                                <div class="metric-card-value {% if item.value is none %}error{% endif %}">{{ item.formatted }}</div>
+                                <div class="metric-delta metric-delta-{{ item.delta_status }}" title="Compared to previous period">
+                                    {% if item.delta_pct is not none and item.delta_pct > 0 %}
+                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M12 5l7 7-1.4 1.4L13 8.8V19h-2V8.8L6.4 13.4 5 12l7-7Z" fill="currentColor"/>
+                                    </svg>
+                                    {% elif item.delta_pct is not none and item.delta_pct < 0 %}
+                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M12 19l-7-7 1.4-1.4L11 15.2V5h2v10.2l4.6-4.6L19 12l-7 7Z" fill="currentColor"/>
+                                    </svg>
+                                    {% else %}
+                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    </svg>
+                                    {% endif %}
+                                    <span class="metric-delta-text">
+                                        {% if item.delta_pct is not none %}
+                                            {{ '%+.1f%%'|format(item.delta_pct) }}
+                                        {% else %}
+                                            +0.0%
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="metric-card-meta">
+                                <span class="results-pill">{{ item.metric.unit }}</span>
+                                <span class="results-pill results-pill-accent">L{{ item.metric.layer }}</span>
+                            </div>
+
+                            <details class="metric-history">
+                                <summary class="metric-history-btn">Past 3 weeks</summary>
+                                <div class="metric-history-list">
+                                    {% if item.history and item.history|length > 0 %}
+                                        {% for h in item.history %}
+                                        <div class="metric-history-row">
+                                            <div class="metric-history-period">{{ h.period.label }}</div>
+                                            <div class="metric-history-value">{{ h.formatted }}</div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="metric-history-empty">Null</div>
+                                    {% endif %}
+                                </div>
+                            </details>
+                            {% if item.metric.formula %}
+                            <details class="results-details metric-card-details">
+                                <summary>Formula</summary>
+                                <code class="formula">{{ item.metric.formula }}</code>
+                            </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="results-grid-empty" data-results-grid-empty hidden>No metrics match your search.</div>
+            </div>
+            {% else %}
+            <p class="no-data">No derived metrics defined.</p>
+            {% endif %}
+        </section>
+
+        <section class="results-panel" data-results-panel="graphs" role="tabpanel" hidden>
+            <div class="results-section-header">
+                <h3>Graphs (Current vs Past Weeks)</h3>
+                <div class="results-section-tools">
+                    <span class="results-section-meta">Line charts from current period + past 3 weeks</span>
+                </div>
+            </div>
+
+            <div class="results-view">
+                <h4 style="margin: 0 0 var(--spacing-md) 0;">Base</h4>
+                <div class="results-grid" data-results-grid>
+                    {% for item in base_results %}
+                    <div class="metric-card" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit)|lower }}" data-graph-series='[{% for h in item.history|reverse %}{"label":"{{ h.period.label }}","value":{% if h.value is none %}null{% else %}{{ h.value }}{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}{% if item.history and item.history|length > 0 %},{% endif %}{"label":"{{ selected_period.label }}","value":{% if item.value is none %}null{% else %}{{ item.value }}{% endif %}}]'>
+                        <div class="metric-card-header">
+                            <div class="metric-head">
+                                <div class="metric-name">{{ item.metric.display_name }}</div>
+                            </div>
+                            <code class="metric-key">{{ item.metric.key }}</code>
+                        </div>
+                        <div class="metric-card-body">
+                            <div class="metric-card-value-row">
+                                <div class="metric-card-value {% if item.value is none %}no-data{% endif %}">
+                                    {{ item.formatted }}
+                                </div>
+                            </div>
+                            <div class="metric-card-meta">
+                                <span class="results-pill">{{ item.metric.unit }}</span>
+                            </div>
+                            <div class="metric-graph" data-metric-graph></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="results-grid-empty" data-results-grid-empty hidden>No metrics match your search.</div>
+
+                <h4 style="margin: var(--spacing-xl) 0 var(--spacing-md) 0;">Derived</h4>
+                <div class="results-grid" data-results-grid>
+                    {% for item in derived_results %}
+                    <div class="metric-card" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ item.metric.layer)|lower }}" data-graph-series='[{% for h in item.history|reverse %}{"label":"{{ h.period.label }}","value":{% if h.value is none %}null{% else %}{{ h.value }}{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}{% if item.history and item.history|length > 0 %},{% endif %}{"label":"{{ selected_period.label }}","value":{% if item.value is none %}null{% else %}{{ item.value }}{% endif %}}]'>
+                        <div class="metric-card-header">
+                            <div class="metric-head">
+                                <div class="metric-name">{{ item.metric.display_name }}</div>
+                            </div>
+                            <code class="metric-key">{{ item.metric.key }}</code>
+                        </div>
+                        <div class="metric-card-body">
+                            <div class="metric-card-value-row">
+                                <div class="metric-card-value {% if item.value is none %}error{% endif %}">{{ item.formatted }}</div>
+                            </div>
+                            <div class="metric-card-meta">
+                                <span class="results-pill">{{ item.metric.unit }}</span>
+                                <span class="results-pill results-pill-accent">L{{ item.metric.layer }}</span>
+                            </div>
+                            <div class="metric-graph" data-metric-graph></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="results-grid-empty" data-results-grid-empty hidden>No metrics match your search.</div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const root = document.querySelector('[data-results-page]');
+    if (!root) return;
+
+    const searchInput = root.querySelector('[data-results-search]');
+    const tabButtons = root.querySelectorAll('[data-results-tab]');
+    const panels = root.querySelectorAll('[data-results-panel]');
+    const viewButtons = root.querySelectorAll('[data-results-view]');
+
+    let activeTab = 'base';
+    let activeView = (function() {
+        try {
+            return localStorage.getItem('resultsView') || 'table';
+        } catch (e) {
+            return 'table';
+        }
+    })();
+
+    function setActiveView(view) {
+        activeView = view;
+        viewButtons.forEach(function(btn) {
+            const isActive = btn.getAttribute('data-results-view') === view;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+        panels.forEach(function(panel) {
+            const containers = panel.querySelectorAll('[data-results-view-container]');
+            containers.forEach(function(c) {
+                const isActive = c.getAttribute('data-results-view-container') === view;
+                c.hidden = !isActive;
+            });
+        });
+        try {
+            localStorage.setItem('resultsView', view);
+        } catch (e) {
+        }
+        filterRows();
+        if (typeof hideTooltip === 'function') hideTooltip();
+    }
+
+    let graphsInitialized = false;
+
+    function renderSparkline(container, series) {
+        if (!container) return;
+        const points = (series || []).map(function(p) {
+            return {
+                label: p.label,
+                value: (p.value === null || typeof p.value === 'undefined') ? null : Number(p.value)
+            };
+        });
+        const values = points.map(function(p) { return p.value; }).filter(function(v) { return v !== null && !Number.isNaN(v); });
+
+        const width = 260;
+        const height = 86;
+        const padX = 10;
+        const padY = 12;
+        const innerW = width - (padX * 2);
+        const innerH = height - (padY * 2);
+
+        const bg = 'rgba(20, 26, 34, 0.20)';
+        const grid = 'rgba(255, 255, 255, 0.08)';
+        const stroke = 'currentColor';
+        const strokeWidth = 2;
+        const dotFill = 'currentColor';
+
+        if (!values.length || points.length < 2) {
+            container.innerHTML = '<div class="metric-history-empty">Null</div>';
+            return;
+        }
+
+        const minV = Math.min.apply(null, values);
+        const maxV = Math.max.apply(null, values);
+        const range = (Math.abs(maxV - minV) < 1e-12) ? 1 : (maxV - minV);
+
+        function xFor(i) {
+            if (points.length === 1) return padX + (innerW / 2);
+            return padX + (innerW * (i / (points.length - 1)));
+        }
+
+        function yFor(v) {
+            if (v === null || Number.isNaN(v)) return null;
+            const t = (v - minV) / range;
+            return padY + (innerH * (1 - t));
+        }
+
+        const coords = points.map(function(p, i) {
+            const y = yFor(p.value);
+            return { x: xFor(i), y: y, label: p.label, value: p.value };
+        });
+
+        const segments = [];
+        coords.forEach(function(c) {
+            if (c.y === null) return;
+            segments.push(c.x.toFixed(2) + ',' + c.y.toFixed(2));
+        });
+
+        const svgParts = [];
+        svgParts.push('<svg viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="' + height + '" preserveAspectRatio="none" style="display:block; border-radius: 10px; background:' + bg + ';">');
+        svgParts.push('<line x1="' + padX + '" y1="' + (height - padY) + '" x2="' + (width - padX) + '" y2="' + (height - padY) + '" stroke="' + grid + '" stroke-width="1"/>');
+        svgParts.push('<line x1="' + padX + '" y1="' + padY + '" x2="' + padX + '" y2="' + (height - padY) + '" stroke="' + grid + '" stroke-width="1"/>');
+
+        if (segments.length >= 2) {
+            svgParts.push('<polyline fill="none" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" points="' + segments.join(' ') + '"/>');
+        }
+
+        coords.forEach(function(c) {
+            if (c.y === null) return;
+            svgParts.push('<circle cx="' + c.x.toFixed(2) + '" cy="' + c.y.toFixed(2) + '" r="3" fill="' + dotFill + '"/>');
+        });
+
+        svgParts.push('</svg>');
+        container.innerHTML = svgParts.join('');
+    }
+
+    function initGraphsPanel() {
+        if (graphsInitialized) return;
+        const panel = root.querySelector('[data-results-panel="graphs"]');
+        if (!panel) return;
+        const cards = panel.querySelectorAll('[data-graph-series]');
+        cards.forEach(function(card) {
+            const target = card.querySelector('[data-metric-graph]');
+            if (!target) return;
+            let series = [];
+            try {
+                series = JSON.parse(card.getAttribute('data-graph-series') || '[]');
+            } catch (e) {
+                series = [];
+            }
+            renderSparkline(target, series);
+        });
+        graphsInitialized = true;
+    }
+
+    function setActiveTab(tab) {
+        activeTab = tab;
+        tabButtons.forEach(function(btn) {
+            const isActive = btn.getAttribute('data-results-tab') === tab;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        panels.forEach(function(panel) {
+            const isActive = panel.getAttribute('data-results-panel') === tab;
+            panel.classList.toggle('active', isActive);
+            panel.hidden = !isActive;
+        });
+        if (tab === 'graphs') {
+            initGraphsPanel();
+        }
+        filterRows();
+        if (typeof hideTooltip === 'function') hideTooltip();
+    }
+
+    function filterRows() {
+        if (!searchInput) return;
+        const query = (searchInput.value || '').trim().toLowerCase();
+        const panel = root.querySelector('[data-results-panel="' + activeTab + '"]');
+        if (!panel) return;
+
+        let scopeRoot = panel;
+        const activeCategoryPanel = panel.querySelector('.results-category-panel.active');
+        if (activeCategoryPanel) {
+            scopeRoot = activeCategoryPanel;
+        }
+
+        const rows = scopeRoot.querySelectorAll('tbody tr[data-search]');
+        let visibleRows = 0;
+        rows.forEach(function(row) {
+            const haystack = row.getAttribute('data-search') || '';
+            const match = !query || haystack.indexOf(query) !== -1;
+            row.style.display = match ? '' : 'none';
+            if (match) visibleRows += 1;
+        });
+
+        const subHeaders = scopeRoot.querySelectorAll('tbody tr[data-results-subheader]');
+        if (subHeaders && subHeaders.length) {
+            subHeaders.forEach(function(h) {
+                h.style.display = '';
+            });
+            const tbodies = scopeRoot.querySelectorAll('tbody');
+            tbodies.forEach(function(tbody) {
+                const trs = Array.from(tbody.querySelectorAll('tr'));
+                let currentHeader = null;
+                let currentCount = 0;
+                function finalizeHeader() {
+                    if (currentHeader) {
+                        currentHeader.style.display = currentCount > 0 ? '' : 'none';
+                    }
+                }
+                trs.forEach(function(tr) {
+                    if (tr.hasAttribute('data-results-subheader')) {
+                        finalizeHeader();
+                        currentHeader = tr;
+                        currentCount = 0;
+                        return;
+                    }
+                    if (tr.hasAttribute('data-search')) {
+                        if (tr.style.display !== 'none') {
+                            currentCount += 1;
+                        }
+                    }
+                });
+                finalizeHeader();
+            });
+        }
+
+        const emptyRow = scopeRoot.querySelector('[data-results-empty]');
+        if (emptyRow) {
+            emptyRow.style.display = visibleRows === 0 ? 'table-row' : 'none';
+        }
+
+        const cards = scopeRoot.querySelectorAll('[data-results-card]');
+        let visibleCards = 0;
+        cards.forEach(function(card) {
+            const haystack = card.getAttribute('data-search') || '';
+            const match = !query || haystack.indexOf(query) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) visibleCards += 1;
+        });
+
+        const subBlocks = scopeRoot.querySelectorAll('[data-subcategory-block]');
+        if (subBlocks && subBlocks.length) {
+            subBlocks.forEach(function(block) {
+                const cardsInBlock = block.querySelectorAll('[data-results-card]');
+                let anyVisible = false;
+                cardsInBlock.forEach(function(c) {
+                    if (c.style.display !== 'none') anyVisible = true;
+                });
+                block.style.display = anyVisible ? '' : 'none';
+            });
+        }
+
+        const emptyGrid = scopeRoot.querySelector('[data-results-grid-empty]');
+        if (emptyGrid) {
+            emptyGrid.hidden = visibleCards !== 0;
+        }
+    }
+
+    tabButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setActiveTab(btn.getAttribute('data-results-tab'));
+        });
+    });
+
+    viewButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setActiveView(btn.getAttribute('data-results-view'));
+        });
+    });
+
+    root.addEventListener('click', function(e) {
+        const toggleKeysBtn = e.target.closest('[data-toggle-keys]');
+        if (toggleKeysBtn && root.contains(toggleKeysBtn)) {
+            const panel = toggleKeysBtn.closest('[data-results-panel]');
+            if (!panel) return;
+            const isShown = panel.classList.toggle('show-keys');
+            toggleKeysBtn.setAttribute('aria-label', isShown ? 'Hide metric keys' : 'Show metric keys');
+            toggleKeysBtn.classList.toggle('active', isShown);
+            return;
+        }
+    });
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'results-tooltip';
+    tooltip.setAttribute('role', 'tooltip');
+    tooltip.style.display = 'none';
+    document.body.appendChild(tooltip);
+
+    let hideTimer = null;
+    let hideDisplayTimer = null;
+    let activeInfoBtn = null;
+
+    function hideTooltip() {
+        clearTimeout(hideTimer);
+        clearTimeout(hideDisplayTimer);
+        tooltip.classList.remove('visible');
+        hideDisplayTimer = setTimeout(function() {
+            tooltip.style.display = 'none';
+        }, 180);
+        activeInfoBtn = null;
+    }
+
+    function scheduleHideTooltip(delayMs) {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hideTooltip, delayMs || 0);
+    }
+
+    function showTooltip(btn) {
+        clearTimeout(hideTimer);
+        clearTimeout(hideDisplayTimer);
+        const text = btn.getAttribute('data-desc');
+        if (!text) return;
+        activeInfoBtn = btn;
+        tooltip.textContent = text;
+        tooltip.style.display = 'block';
+
+        requestAnimationFrame(function() {
+            const rect = btn.getBoundingClientRect();
+            const tRect = tooltip.getBoundingClientRect();
+
+            let top = rect.top - tRect.height - 10;
+            if (top < 8) top = rect.bottom + 10;
+
+            let left = rect.left + (rect.width / 2) - (tRect.width / 2);
+            left = Math.max(8, Math.min(left, window.innerWidth - tRect.width - 8));
+
+            tooltip.style.top = top + 'px';
+            tooltip.style.left = left + 'px';
+            tooltip.classList.add('visible');
+        });
+    }
+
+    const categoryTabButtons = root.querySelectorAll('[data-category-tab]');
+    const categoryPanels = root.querySelectorAll('[data-category-panel]');
+    let activeCategory = 0;
+
+    function setActiveCategory(idx) {
+        activeCategory = idx;
+        categoryTabButtons.forEach(function(btn) {
+            const isActive = btn.getAttribute('data-category-tab') === String(idx);
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        categoryPanels.forEach(function(p) {
+            const isActive = p.getAttribute('data-category-panel') === String(idx);
+            p.classList.toggle('active', isActive);
+            p.hidden = !isActive;
+        });
+        try {
+            localStorage.setItem('resultsBaseCategoryTab', String(idx));
+        } catch (e) {
+        }
+        filterRows();
+        hideTooltip();
+    }
+
+    if (categoryTabButtons && categoryTabButtons.length) {
+        try {
+            const saved = localStorage.getItem('resultsBaseCategoryTab');
+            if (saved !== null && root.querySelector('[data-category-panel="' + saved + '"]')) {
+                activeCategory = parseInt(saved, 10);
+            }
+        } catch (e) {
+        }
+        categoryTabButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setActiveCategory(parseInt(btn.getAttribute('data-category-tab'), 10));
+            });
+        });
+        setActiveCategory(activeCategory);
+    }
+
+    root.addEventListener('mouseover', function(e) {
+        const btn = e.target.closest('[data-metric-info]');
+        if (!btn || !root.contains(btn)) return;
+        showTooltip(btn);
+    });
+
+    root.addEventListener('mouseout', function(e) {
+        const btn = e.target.closest('[data-metric-info]');
+        if (!btn || !root.contains(btn)) return;
+        if (btn.contains(e.relatedTarget)) return;
+        if (tooltip.contains(e.relatedTarget)) return;
+        scheduleHideTooltip(0);
+    });
+
+    tooltip.addEventListener('mouseenter', function() {
+        clearTimeout(hideTimer);
+        clearTimeout(hideDisplayTimer);
+    });
+
+    tooltip.addEventListener('mouseleave', function() {
+        scheduleHideTooltip(0);
+    });
+
+    root.addEventListener('focusin', function(e) {
+        const btn = e.target.closest('[data-metric-info]');
+        if (!btn || !root.contains(btn)) return;
+        showTooltip(btn);
+    });
+
+    root.addEventListener('focusout', function(e) {
+        const btn = e.target.closest('[data-metric-info]');
+        if (!btn || !root.contains(btn)) return;
+        scheduleHideTooltip(0);
+    });
+
+    window.addEventListener('scroll', function() {
+        if (activeInfoBtn) scheduleHideTooltip();
+    }, { passive: true });
+
+    window.addEventListener('resize', function() {
+        if (activeInfoBtn) scheduleHideTooltip();
+    });
+
+    const debounced = window.debounce ? window.debounce(filterRows, 80) : filterRows;
+    if (searchInput) {
+        searchInput.addEventListener('input', debounced);
+    }
+
+    setActiveView(activeView);
+});
+</script>
+{% endblock %}

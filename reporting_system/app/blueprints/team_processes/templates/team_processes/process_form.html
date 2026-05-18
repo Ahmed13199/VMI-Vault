@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{% if process %}Edit{% else %}New{% endif %} Process{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{% if process %}Edit Process{% else %}New Process{% endif %}</h1>
+    <p class="page-subtitle">{{ team.name }}</p>
+</div>
+
+<div class="actions-bar">
+    <a href="{{ url_for('team_processes.team', team_id=team.id) }}" class="btn btn-secondary">Back</a>
+    {% if process %}
+        <a href="{{ url_for('team_processes.view_process', team_id=team.id, process_id=process.id) }}" class="btn btn-secondary">Open</a>
+    {% endif %}
+</div>
+
+<div class="form-container">
+    <form method="POST">
+        <div class="form-group">
+            <label for="title">Title</label>
+            <input id="title" name="title" type="text" required value="{{ form_data.get('title','') }}" placeholder="e.g., Lead Qualification" />
+        </div>
+
+        <div class="form-group">
+            <label for="slug">Slug</label>
+            <input id="slug" name="slug" type="text" value="{{ form_data.get('slug','') }}" placeholder="auto-generated if empty" />
+            <small class="help-text">Used in URLs/identifiers. Letters/numbers/dashes.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                {% set s = form_data.get('status','draft') %}
+                <option value="draft" {% if s == 'draft' %}selected{% endif %}>Draft</option>
+                <option value="active" {% if s == 'active' %}selected{% endif %}>Active</option>
+                <option value="archived" {% if s == 'archived' %}selected{% endif %}>Archived</option>
+            </select>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

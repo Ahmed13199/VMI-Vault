@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% macro resource_panel(level, parent, can_manage, compact=false) %}
+    {% if can_manage %}
+    <details class="sales-action guidelines-action-panel {% if compact %}guidelines-resource-panel-compact{% endif %}">
+        <summary><span class="guidelines-action-trigger">Add document or link</span></summary>
+        <div class="sales-action-body">
+            <div class="guidelines-uploader-shell">
+                <form method="POST" action="{{ url_for('sales_team.create_resource', level=level, parent_id=parent.id) }}" enctype="multipart/form-data" class="sales-form sales-inline-card guidelines-upload-card">
+                    <div class="guidelines-upload-head">
+                        <div>
+                            <div class="sales-inline-card-title">Upload file</div>
+                            <p class="guidelines-upload-subtitle">Attach a downloadable document directly to this level.</p>
+                        </div>
+                        <span class="guidelines-upload-badge">File</span>
+                    </div>
+                    <div class="sales-inline-grid">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" name="title" placeholder="Optional display title">
+                        </div>
+                        <div class="form-group">
+                            <label>File</label>
+                            <div class="guidelines-file-picker">
+                                <input type="file" name="file">
+                            </div>
+                            <span class="help-text">PDF, DOCX, XLSX, images, or any file your team needs.</span>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Upload File</button>
+                    </div>
+                </form>
+
+                <form method="POST" action="{{ url_for('sales_team.create_resource', level=level, parent_id=parent.id) }}" class="sales-form sales-inline-card guidelines-upload-card guidelines-upload-card-link">
+                    <div class="guidelines-upload-head">
+                        <div>
+                            <div class="sales-inline-card-title">Add URL</div>
+                            <p class="guidelines-upload-subtitle">Save a reference link, system URL, or external document.</p>
+                        </div>
+                        <span class="guidelines-upload-badge">Link</span>
+                    </div>
+                    <div class="sales-inline-grid">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" name="title" placeholder="Optional display title">
+                        </div>
+                        <div class="form-group">
+                            <label>URL</label>
+                            <input type="url" name="url" placeholder="https://example.com" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-secondary">Save URL</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </details>
+    {% endif %}
+{% endmacro %}
+
+{% macro resource_list(resources, can_manage, empty_text) %}
+    {% if resources %}
+    <div class="guidelines-document-list">
+        {% for resource in resources %}
+        <div class="guidelines-document-row">
+            <div class="guidelines-document-main">
+                <span class="guidelines-tree-icon {% if resource.resource_type == 'file' %}document{% else %}link{% endif %}" aria-hidden="true"></span>
+                <div>
+                    <div class="guidelines-document-title">{{ resource.title }}</div>
+                    <div class="guidelines-document-meta">
+                        {% if resource.resource_type == 'file' and resource.original_filename %}
+                        {{ resource.original_filename }}
+                        {% elif resource.url %}
+                        {{ resource.url }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="sales-resource-actions">
+                {% if resource.resource_type == 'file' and resource.original_filename and '.' in resource.original_filename %}
+                <span class="guidelines-file-format">{{ resource.original_filename.rsplit('.', 1)[-1]|upper }}</span>
+                {% endif %}
+                <span class="sales-resource-type">{{ 'File' if resource.resource_type == 'file' else 'Link' }}</span>
+                <a href="{{ url_for('sales_team.open_resource', resource_id=resource.id) }}" class="btn btn-small btn-secondary" target="_blank" rel="noopener noreferrer">Open</a>
+                {% if can_manage %}
+                <form method="POST" action="{{ url_for('sales_team.delete_resource', resource_id=resource.id) }}" class="inline-form" onsubmit="return confirm('Delete this resource?');">
+                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="sales-empty-inline">{{ empty_text }}</div>
+    {% endif %}
+{% endmacro %}
+
+{% block title %}Team Guidelines{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        var treeNodes = document.querySelectorAll('[data-tree-node]');
+
+        for (var i = 0; i < treeNodes.length; i++) {
+            treeNodes[i].addEventListener('toggle', function () {
+                if (this.open) {
+                    this.classList.add('is-open');
+                } else {
+                    this.classList.remove('is-open');
+                }
+            });
+        }
+    })();
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Team Guidelines</h1>
+    <p class="page-subtitle">A shared knowledge space for every team to organize section groups, sections, subsections, links, and files in one place.</p>
+</div>
+
+<section class="sales-shell">
+    <div class="guidelines-hero">
+        <div>
+            <div class="sales-kicker">Knowledge Base</div>
+            <h2>{{ selected_team.name }} Team Workspace</h2>
+            <p>Build a cleaner structure for your team using grouped folders and document-style resources. You can now attach files and URLs on the group, section, or subsection level.</p>
+            <div class="guidelines-stats">
+                <div class="guidelines-stat-card">
+                    <strong>{{ stats.partitions }}</strong>
+                    <span>Section groups</span>
+                </div>
+                <div class="guidelines-stat-card">
+                    <strong>{{ stats.sections }}</strong>
+                    <span>Sections</span>
+                </div>
+                <div class="guidelines-stat-card">
+                    <strong>{{ stats.subsections }}</strong>
+                    <span>Subsections</span>
+                </div>
+                <div class="guidelines-stat-card">
+                    <strong>{{ stats.resources }}</strong>
+                    <span>Documents</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sales-inline-card guidelines-side-card">
+            <div class="sales-inline-card-title">How to organize it well</div>
+            <div class="guidelines-tip-list">
+                <div class="guidelines-tip-item">Use section groups for major domains like onboarding, pricing, contracts, or escalation.</div>
+                <div class="guidelines-tip-item">Place documents on the exact level they belong to: broad references on groups, workflow files on sections, and detailed assets on subsections.</div>
+                <div class="guidelines-tip-item">Keep link titles clear so the page reads like a professional team library instead of a random dump.</div>
+            </div>
+            {% if can_manage_selected_team %}
+            <form method="POST" action="{{ url_for('sales_team.create_partition') }}" class="sales-form guidelines-create-form">
+                <input type="hidden" name="team_id" value="{{ selected_team.id }}">
+                <div class="form-group">
+                    <label for="partition_title">New section group</label>
+                    <input id="partition_title" type="text" name="title" placeholder="Example: Onboarding and Playbooks" required>
+                </div>
+                <div class="form-group">
+                    <label for="partition_description">Description</label>
+                    <textarea id="partition_description" name="description" rows="3" placeholder="Optional summary for this group"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create Group</button>
+                </div>
+            </form>
+            {% else %}
+            <div class="sales-empty-inline">
+                You can browse all team tabs, but only your own team tab can be edited with your current account.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="guidelines-team-tabs" role="tablist" aria-label="Teams">
+        {% for team in teams %}
+        <a
+            href="{{ url_for('sales_team.guidelines', team=team.id) }}"
+            class="guidelines-team-tab {% if team.id == selected_team.id %}active{% endif %}"
+            role="tab"
+            aria-selected="{{ 'true' if team.id == selected_team.id else 'false' }}"
+        >
+            <span class="guidelines-team-tab-name">{{ team.name }}</span>
+            <span class="guidelines-team-tab-meta">{{ team.type if team.type else 'Team' }}</span>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if partitions %}
+    <div class="guidelines-tree">
+        {% for partition in partitions %}
+        <section class="guidelines-group-card">
+            <div class="guidelines-group-header">
+                <div>
+                    <div class="guidelines-folder-label">
+                        <span class="guidelines-folder-icon" aria-hidden="true"></span>
+                        Section Group {{ loop.index }}
+                    </div>
+                    <h3>{{ partition.title }}</h3>
+                    {% if partition.description %}
+                    <p>{{ partition.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="guidelines-group-actions">
+                    <div class="sales-stat">{{ partition.sections|length }} section{{ '' if partition.sections|length == 1 else 's' }}</div>
+                    <div class="sales-stat">{{ partition.resources|length }} doc{{ '' if partition.resources|length == 1 else 's' }}</div>
+                    {% if can_manage_selected_team %}
+                    <form method="POST" action="{{ url_for('sales_team.delete_partition', partition_id=partition.id) }}" class="inline-form" onsubmit="return confirm('Delete this section group and everything inside it?');">
+                        <button type="submit" class="btn btn-small btn-danger">Delete Group</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {{ resource_panel('partition', partition, can_manage_selected_team) }}
+            {{ resource_list(partition.resources, can_manage_selected_team, 'No documents or links on this group yet.') }}
+
+            {% if can_manage_selected_team %}
+            <details class="sales-action guidelines-action-panel">
+                <summary>Add section</summary>
+                <div class="sales-action-body">
+                    <form method="POST" action="{{ url_for('sales_team.create_section', partition_id=partition.id) }}" class="sales-form sales-inline-card">
+                        <div class="sales-inline-grid">
+                            <div class="form-group">
+                                <label>Section title</label>
+                                <input type="text" name="title" placeholder="Example: First client call" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="description" rows="2" placeholder="Optional summary for this section"></textarea>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-secondary">Save Section</button>
+                        </div>
+                    </form>
+                </div>
+            </details>
+            {% endif %}
+
+            {% if partition.sections %}
+            <div class="guidelines-tree-list">
+                {% for section in partition.sections %}
+                <details class="guidelines-tree-node is-open" data-tree-node open>
+                    <summary class="guidelines-tree-summary">
+                        <div class="guidelines-tree-main">
+                            <span class="guidelines-tree-icon folder" aria-hidden="true"></span>
+                            <div>
+                                <div class="guidelines-tree-kicker">Section</div>
+                                <div class="guidelines-tree-title">{{ section.title }}</div>
+                                {% if section.description %}
+                                <div class="guidelines-tree-text">{{ section.description }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="guidelines-tree-side">
+                            <span class="guidelines-tree-count">{{ section.subsections|length }} subsection{{ '' if section.subsections|length == 1 else 's' }}</span>
+                            <span class="guidelines-tree-count">{{ section.resources|length }} doc{{ '' if section.resources|length == 1 else 's' }}</span>
+                            <span class="guidelines-tree-chevron" aria-hidden="true"></span>
+                        </div>
+                    </summary>
+
+                    <div class="guidelines-tree-body">
+                        {% if can_manage_selected_team %}
+                        <div class="sales-stack-actions">
+                            <form method="POST" action="{{ url_for('sales_team.delete_section', section_id=section.id) }}" class="inline-form" onsubmit="return confirm('Delete this section and all subsections inside it?');">
+                                <button type="submit" class="btn btn-small btn-danger">Delete Section</button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        {{ resource_panel('section', section, can_manage_selected_team, true) }}
+                        {{ resource_list(section.resources, can_manage_selected_team, 'No documents or links on this section yet.') }}
+
+                        {% if can_manage_selected_team %}
+                        <details class="sales-action guidelines-action-panel">
+                            <summary>Add subsection</summary>
+                            <div class="sales-action-body">
+                                <form method="POST" action="{{ url_for('sales_team.create_subsection', section_id=section.id) }}" class="sales-form sales-inline-card sales-subtle-card">
+                                    <div class="sales-inline-grid">
+                                        <div class="form-group">
+                                            <label>Subsection title</label>
+                                            <input type="text" name="title" placeholder="Example: Discovery questions" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Description</label>
+                                            <textarea name="description" rows="2" placeholder="Optional details for this subsection"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-secondary">Save Subsection</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </details>
+                        {% endif %}
+
+                        {% if section.subsections %}
+                        <div class="guidelines-tree-children">
+                            {% for subsection in section.subsections %}
+                            <details class="guidelines-tree-node guidelines-tree-node-child" data-tree-node>
+                                <summary class="guidelines-tree-summary">
+                                    <div class="guidelines-tree-main">
+                                        <span class="guidelines-tree-icon folder-small" aria-hidden="true"></span>
+                                        <div>
+                                            <div class="guidelines-tree-kicker">Subsection</div>
+                                            <div class="guidelines-tree-title">{{ subsection.title }}</div>
+                                            {% if subsection.description %}
+                                            <div class="guidelines-tree-text">{{ subsection.description }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="guidelines-tree-side">
+                                        <span class="guidelines-tree-count">{{ subsection.resources|length }} item{{ '' if subsection.resources|length == 1 else 's' }}</span>
+                                        <span class="guidelines-tree-chevron" aria-hidden="true"></span>
+                                    </div>
+                                </summary>
+
+                                <div class="guidelines-tree-body">
+                                    {% if can_manage_selected_team %}
+                                    <div class="sales-stack-actions">
+                                        <form method="POST" action="{{ url_for('sales_team.delete_subsection', subsection_id=subsection.id) }}" class="inline-form" onsubmit="return confirm('Delete this subsection and all resources inside it?');">
+                                            <button type="submit" class="btn btn-small btn-danger">Delete Subsection</button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
+
+                                    {{ resource_panel('subsection', subsection, can_manage_selected_team, true) }}
+                                    {{ resource_list(subsection.resources, can_manage_selected_team, 'No documents or links in this subsection yet.') }}
+                                </div>
+                            </details>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="sales-empty-inline">No subsections yet.</div>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="sales-empty-inline">No sections yet in this group.</div>
+            {% endif %}
+        </section>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state sales-empty-state">
+        <p>No guidelines are set up for {{ selected_team.name }} yet.</p>
+        <p class="hint">Start with a section group, then add sections, subsections, and documents inside it.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

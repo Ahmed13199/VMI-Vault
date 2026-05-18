@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit{% else %}New{% endif %} Metric - Settings{% endblock %}
+
+{% block content %}
+<style>
+ .dropdown {
+     position: relative;
+     flex: 1;
+ }
+ 
+ .dropdown-menu {
+     position: absolute;
+     left: 0;
+     right: 0;
+     top: calc(100% + 6px);
+     background: var(--color-surface);
+     border: 1px solid var(--color-gray-200);
+     border-radius: var(--radius-md);
+     box-shadow: var(--shadow-lg);
+     max-height: 240px;
+     overflow: auto;
+     z-index: 50;
+     display: none;
+ }
+ 
+ .dropdown.open .dropdown-menu {
+     display: block;
+ }
+ 
+ .dropdown-item {
+     padding: var(--spacing-sm) var(--spacing-md);
+     cursor: pointer;
+     color: var(--color-text-primary);
+     font-size: var(--font-size-sm);
+ }
+ 
+ .dropdown-item:hover,
+ .dropdown-item.active {
+     background: var(--color-surface-light);
+ }
+ 
+ .dropdown-empty {
+     padding: var(--spacing-sm) var(--spacing-md);
+     color: var(--color-text-muted);
+     font-size: var(--font-size-sm);
+ }
+</style>
+<div class="page-header">
+    <h1>{% if is_edit %}Edit Metric{% else %}New Metric{% endif %}</h1>
+    <p class="page-subtitle">
+        {% if is_edit %}
+            Editing: {{ metric.display_name }} ({{ metric.key }})
+        {% else %}
+            Define a new base or derived metric
+        {% endif %}
+    </p>
+</div>
+
+<div class="form-container">
+    <form method="POST" class="metric-form" id="metricForm">
+        <!-- Key (only for new metrics) -->
+        {% if not is_edit %}
+        <div class="form-group">
+            <label for="key">Metric Key *</label>
+            <input type="text" 
+                   id="key" 
+                   name="key" 
+                   required
+                   pattern="[a-z_][a-z0-9_]*"
+                   placeholder="e.g., total_calls, missed_calls_pct"
+                   value="{{ form_data.get('key', '') }}">
+            <span class="help-text">Unique identifier using lowercase letters, numbers, and underscores</span>
+        </div>
+        {% endif %}
+        
+        <!-- Display Name -->
+        <div class="form-group">
+            <label for="display_name">Display Name *</label>
+            <input type="text" 
+                   id="display_name" 
+                   name="display_name" 
+                   required
+                   placeholder="e.g., Total Calls, Missed Calls Percentage"
+                   value="{{ form_data.get('display_name', metric.display_name if is_edit else '') }}">
+        </div>
+        
+        <!-- Description -->
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" 
+                      name="description" 
+                      rows="2"
+                      placeholder="Optional description of this metric">{{ form_data.get('description', metric.description if is_edit and metric.description else '') }}</textarea>
+        </div>
+
+        <!-- Category -->
+        <div class="form-group">
+            <label for="category">Category</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="dropdown" id="categoryDropdown">
+                    <input type="text" 
+                           id="category" 
+                           name="category"
+                           autocomplete="off"
+                           placeholder="Select or type to search..."
+                           value="{{ form_data.get('category', metric.category.name if is_edit and metric.category else '') }}">
+                    <div class="dropdown-menu" id="categoryMenu"></div>
+                </div>
+                <button type="button" class="btn btn-secondary" id="addCategoryBtn" title="Add category">+</button>
+            </div>
+            <div id="categoryMessage" class="help-text"></div>
+        </div>
+
+        <!-- Sub Category -->
+        <div class="form-group">
+            <label for="sub_category">Sub Category</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="dropdown" id="subCategoryDropdown">
+                    <input type="text" 
+                           id="sub_category" 
+                           name="sub_category"
+                           autocomplete="off"
+                           placeholder="Select a category first..."
+                           value="{{ form_data.get('sub_category', metric.sub_category.name if is_edit and metric.sub_category else '') }}">
+                    <div class="dropdown-menu" id="subCategoryMenu"></div>
+                </div>
+                <button type="button" class="btn btn-secondary" id="addSubCategoryBtn" title="Add sub-category">+</button>
+            </div>
+            <span class="help-text">Sub category is scoped under the selected category.</span>
+            <div id="subCategoryMessage" class="help-text"></div>
+        </div>
+
+        <!-- Trend Direction -->
+        <div class="form-group">
+            <label for="trend_direction">Trend Direction *</label>
+            <select id="trend_direction" name="trend_direction" required>
+                {% set current_trend = form_data.get('trend_direction', metric.trend_direction if is_edit else 'neutral') %}
+                <option value="neutral" {% if current_trend == 'neutral' %}selected{% endif %}>Neutral</option>
+                <option value="higher_is_better" {% if current_trend == 'higher_is_better' %}selected{% endif %}>Higher is better</option>
+                <option value="lower_is_better" {% if current_trend == 'lower_is_better' %}selected{% endif %}>Lower is better</option>
+            </select>
+            <span class="help-text">How should this metric be interpreted over time?</span>
+        </div>
+        
+        <!-- Unit -->
+        <div class="form-group">
+            <label for="unit">Unit *</label>
+            <select id="unit" name="unit" required>
+                {% set current_unit = form_data.get('unit', metric.unit if is_edit else 'number') %}
+                <option value="number" {% if current_unit == 'number' %}selected{% endif %}>Number</option>
+                <option value="percent" {% if current_unit == 'percent' %}selected{% endif %}>Percent (%)</option>
+                <option value="currency" {% if current_unit == 'currency' %}selected{% endif %}>Currency ($)</option>
+                <option value="mins" {% if current_unit == 'mins' %}selected{% endif %}>Minutes</option>
+                <option value="days" {% if current_unit == 'days' %}selected{% endif %}>Days</option>
+                <option value="count" {% if current_unit == 'count' %}selected{% endif %}>Count</option>
+            </select>
+        </div>
+        
+        <!-- Teams Scope -->
+        <div class="form-group">
+            <label>Teams</label>
+            <div class="checkbox-list">
+                {% if form_data and form_data.getlist is defined %}
+                    {% set selected_team_ids = form_data.getlist('team_ids') %}
+                {% else %}
+                    {% set selected_team_ids = [] %}
+                {% endif %}
+
+                {% for team in teams %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="team_ids" value="{{ team.id }}"
+                           {% if (team.id|string) in selected_team_ids %}checked{% endif %}
+                           {% if not selected_team_ids and is_edit and (team.id == metric.team_id or team.id in (metric.scoped_teams | map(attribute='id') | list)) %}checked{% endif %}>
+                    <span>{{ team.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <span class="help-text">Select one or more teams to restrict this metric. Leave all unchecked to make it global (all teams).</span>
+        </div>
+        
+        <!-- Is Derived -->
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                {% set is_derived_checked = form_data.get('is_derived') == 'on' or (is_edit and metric.is_derived) %}
+                <input type="checkbox" 
+                       name="is_derived" 
+                       id="is_derived"
+                       onchange="toggleDerivedFields()"
+                       {% if is_derived_checked %}checked{% endif %}>
+                <span>This is a derived metric (calculated from formula)</span>
+            </label>
+        </div>
+        
+        <!-- Derived Metric Fields -->
+        <div id="derivedFields" style="display: none;">
+            <div class="form-group">
+                <label for="formula">Formula *</label>
+                <input type="text" 
+                       id="formula" 
+                       name="formula"
+                       placeholder="e.g., missed_calls / total_calls * 100"
+                       value="{{ form_data.get('formula', metric.formula if is_edit and metric.formula else '') }}">
+                <span class="help-text">
+                    Use metric keys and arithmetic operators (+, -, *, /, parentheses).
+                    <br>Available metrics: 
+                    <code>{% for m in existing_metrics %}{{ m.key }}{% if not loop.last %}, {% endif %}{% endfor %}</code>
+                </span>
+                <div id="formulaValidation" class="validation-message"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="layer">Layer *</label>
+                <input type="number" 
+                       id="layer" 
+                       name="layer" 
+                       min="1" 
+                       max="10"
+                       value="{{ form_data.get('layer', metric.layer if is_edit else 2) }}">
+                <span class="help-text">Layer 2+ for derived metrics. Higher layers can reference lower layer metrics.</span>
+            </div>
+        </div>
+        
+        <!-- Active (only for edit) -->
+        {% if is_edit %}
+        <div class="form-group checkbox-group">
+            <label class="checkbox-label">
+                {% set is_active = form_data.get('active') == 'on' or (not form_data and metric.active) %}
+                <input type="checkbox" name="active" id="active" {% if is_active %}checked{% endif %}>
+                <span>Active</span>
+            </label>
+        </div>
+        {% endif %}
+        
+        <!-- Actions -->
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                {% if is_edit %}Update Metric{% else %}Create Metric{% endif %}
+            </button>
+            <a href="{{ url_for('settings.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+let _categoryOptions = [];
+let _subCategoryOptions = [];
+
+function setupDropdown(dropdownEl, inputEl, menuEl, getOptions, onSelect) {
+    if (!dropdownEl || !inputEl || !menuEl) return;
+
+    let activeIndex = -1;
+
+    function close() {
+        dropdownEl.classList.remove('open');
+        activeIndex = -1;
+    }
+
+    function open() {
+        dropdownEl.classList.add('open');
+        render();
+    }
+
+    function setActive(idx) {
+        const items = menuEl.querySelectorAll('.dropdown-item');
+        items.forEach((el) => el.classList.remove('active'));
+        if (idx >= 0 && idx < items.length) {
+            items[idx].classList.add('active');
+            items[idx].scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    function selectValue(val) {
+        inputEl.value = val;
+        close();
+        if (onSelect) onSelect(val);
+    }
+
+    function filteredOptions() {
+        const q = (inputEl.value || '').trim().toLowerCase();
+        const opts = getOptions() || [];
+        if (!q) return opts;
+        return opts.filter(o => String(o).toLowerCase().includes(q));
+    }
+
+    function render() {
+        const opts = filteredOptions();
+        menuEl.innerHTML = '';
+        if (!opts.length) {
+            const empty = document.createElement('div');
+            empty.className = 'dropdown-empty';
+            empty.textContent = 'No matches';
+            menuEl.appendChild(empty);
+            return;
+        }
+
+        opts.forEach((val, idx) => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = val;
+            item.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                selectValue(val);
+            });
+            menuEl.appendChild(item);
+        });
+        activeIndex = -1;
+    }
+
+    inputEl.addEventListener('focus', function() {
+        open();
+    });
+    inputEl.addEventListener('input', function() {
+        open();
+        render();
+    });
+    inputEl.addEventListener('keydown', function(e) {
+        const items = menuEl.querySelectorAll('.dropdown-item');
+        if (!dropdownEl.classList.contains('open') && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            open();
+        }
+        if (!dropdownEl.classList.contains('open')) return;
+
+        if (e.key === 'Escape') {
+            close();
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+            setActive(activeIndex);
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            setActive(activeIndex);
+            return;
+        }
+        if (e.key === 'Enter' && activeIndex >= 0 && activeIndex < items.length) {
+            e.preventDefault();
+            const val = items[activeIndex].textContent;
+            selectValue(val);
+        }
+    });
+
+    document.addEventListener('mousedown', function(e) {
+        if (!dropdownEl.contains(e.target)) {
+            close();
+        }
+    });
+
+    return { open, close, render };
+}
+
+function setMessage(elId, text, isError) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = isError ? '#b42318' : '';
+}
+
+async function postJson(url, payload) {
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data || data.ok === false) {
+        const msg = (data && data.error) ? data.error : 'Request failed.';
+        throw new Error(msg);
+    }
+    return data;
+}
+
+async function loadCategoryOptions() {
+    const resp = await fetch('{{ url_for("settings.metric_categories") }}');
+    const data = await resp.json();
+    const categories = (data && data.categories) ? data.categories : [];
+
+    _categoryOptions = categories;
+    if (window._categoryDropdownApi && window._categoryDropdownApi.render) {
+        window._categoryDropdownApi.render();
+    }
+}
+
+async function loadSubCategoryOptions(categoryName) {
+    const subInput = document.getElementById('sub_category');
+    if (!subInput) return;
+
+    const normalized = (categoryName || '').trim();
+    if (!normalized) {
+        _subCategoryOptions = [];
+        if (window._subCategoryDropdownApi && window._subCategoryDropdownApi.render) {
+            window._subCategoryDropdownApi.render();
+        }
+        subInput.placeholder = 'Select a category first...';
+        return;
+    }
+
+    const url = new URL('{{ url_for("settings.metric_sub_categories") }}', window.location.origin);
+    url.searchParams.set('category', normalized);
+
+    const resp = await fetch(url.toString());
+    const data = await resp.json();
+    const subCategories = (data && data.sub_categories) ? data.sub_categories : [];
+
+    subInput.placeholder = subCategories.length ? 'Select or type to search...' : 'No sub-categories yet (type to create)';
+
+    _subCategoryOptions = subCategories;
+    if (window._subCategoryDropdownApi && window._subCategoryDropdownApi.render) {
+        window._subCategoryDropdownApi.render();
+    }
+}
+
+async function addCategoryFromInput() {
+    const input = document.getElementById('category');
+    if (!input) return;
+
+    const name = (input.value || '').trim();
+    if (!name) {
+        setMessage('categoryMessage', 'Type a category name first, then press +.', true);
+        return;
+    }
+
+    setMessage('categoryMessage', 'Adding category...', false);
+    try {
+        const data = await postJson('{{ url_for("settings.create_metric_category") }}', { name });
+        await loadCategoryOptions();
+        input.value = data.category;
+        setMessage('categoryMessage', 'Category added.', false);
+
+        const subInput = document.getElementById('sub_category');
+        if (subInput) {
+            subInput.value = '';
+        }
+        setMessage('subCategoryMessage', '', false);
+        await loadSubCategoryOptions(input.value);
+    } catch (e) {
+        setMessage('categoryMessage', e.message, true);
+    }
+}
+
+async function addSubCategoryFromInput() {
+    const categoryInput = document.getElementById('category');
+    const subInput = document.getElementById('sub_category');
+    if (!categoryInput || !subInput) return;
+
+    const category = (categoryInput.value || '').trim();
+    const name = (subInput.value || '').trim();
+
+    if (!category) {
+        setMessage('subCategoryMessage', 'Select a category first, then add a sub-category.', true);
+        return;
+    }
+    if (!name) {
+        setMessage('subCategoryMessage', 'Type a sub-category name first, then press +.', true);
+        return;
+    }
+
+    setMessage('subCategoryMessage', 'Adding sub-category...', false);
+    try {
+        const data = await postJson('{{ url_for("settings.create_metric_sub_category") }}', { category, name });
+        await loadSubCategoryOptions(category);
+        subInput.value = data.sub_category;
+        setMessage('subCategoryMessage', 'Sub-category added.', false);
+    } catch (e) {
+        setMessage('subCategoryMessage', e.message, true);
+    }
+}
+
+function toggleDerivedFields() {
+    const isDerived = document.getElementById('is_derived').checked;
+    const derivedFields = document.getElementById('derivedFields');
+    const layerInput = document.getElementById('layer');
+    
+    derivedFields.style.display = isDerived ? 'block' : 'none';
+    
+    if (!isDerived) {
+        layerInput.value = 1;
+    } else if (layerInput.value < 2) {
+        layerInput.value = 2;
+    }
+}
+
+function validateFormula() {
+    const formula = document.getElementById('formula').value;
+    const validationDiv = document.getElementById('formulaValidation');
+    
+    if (!formula.trim()) {
+        validationDiv.innerHTML = '';
+        return;
+    }
+    
+    fetch('{{ url_for("settings.validate_formula") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ formula: formula })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.valid) {
+            validationDiv.innerHTML = '<span class="valid">✓ Formula is valid</span>';
+        } else {
+            validationDiv.innerHTML = '<span class="invalid">✗ ' + data.errors.join(', ') + '</span>';
+        }
+    })
+    .catch(error => {
+        validationDiv.innerHTML = '<span class="invalid">Error validating formula</span>';
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryInput = document.getElementById('category');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const addSubCategoryBtn = document.getElementById('addSubCategoryBtn');
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryMenu = document.getElementById('categoryMenu');
+    const subCategoryDropdown = document.getElementById('subCategoryDropdown');
+    const subCategoryMenu = document.getElementById('subCategoryMenu');
+    const subCategoryInput = document.getElementById('sub_category');
+
+    window._categoryDropdownApi = setupDropdown(
+        categoryDropdown,
+        categoryInput,
+        categoryMenu,
+        () => _categoryOptions,
+        () => {
+            if (subCategoryInput) {
+                subCategoryInput.value = '';
+            }
+            setMessage('subCategoryMessage', '', false);
+            loadSubCategoryOptions(categoryInput ? categoryInput.value : '');
+        }
+    );
+
+    window._subCategoryDropdownApi = setupDropdown(
+        subCategoryDropdown,
+        subCategoryInput,
+        subCategoryMenu,
+        () => _subCategoryOptions,
+        () => {}
+    );
+
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', addCategoryFromInput);
+    }
+    if (addSubCategoryBtn) {
+        addSubCategoryBtn.addEventListener('click', addSubCategoryFromInput);
+    }
+
+    loadCategoryOptions();
+    if (categoryInput) {
+        loadSubCategoryOptions(categoryInput.value);
+        categoryInput.addEventListener('input', function() {
+            if (subCategoryInput) {
+                subCategoryInput.value = '';
+            }
+            setMessage('subCategoryMessage', '', false);
+            loadSubCategoryOptions(categoryInput.value);
+        });
+        categoryInput.addEventListener('change', function() {
+            loadSubCategoryOptions(categoryInput.value);
+        });
+    }
+
+    toggleDerivedFields();
+    
+    // Add formula validation on blur
+    const formulaInput = document.getElementById('formula');
+    if (formulaInput) {
+        formulaInput.addEventListener('blur', validateFormula);
+    }
+});
+</script>
+{% endblock %}

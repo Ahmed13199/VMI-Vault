@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Team Processes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Team Processes</h1>
+    <p class="page-subtitle">Document, standardize, and scale how work gets done</p>
+</div>
+
+<div class="tp-grid">
+    {% for team in teams %}
+    <section class="tp-card">
+        <div class="tp-card-header">
+            <h2 class="tp-card-title">{{ team.name }}</h2>
+            <div class="tp-card-actions">
+                <a class="btn btn-small" href="{{ url_for('team_processes.team', team_id=team.id) }}">View</a>
+            </div>
+        </div>
+
+        <div class="tp-card-body">
+            {% set items = by_team.get(team.id, []) %}
+            {% if items and items|length > 0 %}
+                <ul class="tp-list tp-list-scroll-3">
+                    {% for p in items[:5] %}
+                        <li class="tp-list-item">
+                            <a class="tp-link" href="{{ url_for('team_processes.view_process', team_id=team.id, process_id=p.id) }}">{{ p.title }}</a>
+                            <span class="tp-meta">
+                                <span class="tp-status-dot{% if p.status == 'active' %} is-active{% endif %}" aria-hidden="true"></span>
+                                {{ p.status }}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% if items|length > 5 %}
+                    <div class="tp-muted">+{{ items|length - 5 }} more</div>
+                {% endif %}
+            {% else %}
+                <div class="tp-empty">No processes yet.</div>
+            {% endif %}
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}
