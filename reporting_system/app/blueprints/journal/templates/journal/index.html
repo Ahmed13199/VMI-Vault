@@ -24,7 +24,7 @@
         <div class="journal-table-actions">
             <a class="btn btn-small btn-secondary" href="{{ url_for('journal.edit_table', table_id=t.id) }}">{{ 'Edit' if current_user.can_edit_page('journal') else 'View' }}</a>
             {% if current_user.can_edit_page('journal') %}
-            <form method="POST" action="{{ url_for('journal.delete_table', table_id=t.id) }}" onsubmit="return confirm('Delete this table? This cannot be undone.');">
+            <form method="POST" action="{{ url_for('journal.delete_table', table_id=t.id) }}" data-confirm="Delete this table? This cannot be undone.">
                 <button type="submit" class="btn btn-small btn-danger">Delete</button>
             </form>
             {% endif %}

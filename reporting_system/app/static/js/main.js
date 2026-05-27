@@ -12,6 +12,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         initFlashMessages();
         initFormValidation();
+        initConfirmDialogs();
         initNumberInputs();
     });
 
@@ -142,10 +143,128 @@
     }
 
     /**
-     * Confirm before destructive actions
+     * Styled confirmation dialog for destructive actions
      */
-    window.confirmAction = function(message) {
-        return confirm(message || 'Are you sure you want to proceed?');
+    function initConfirmDialogs() {
+        const modal = document.querySelector('[data-confirm-modal]');
+        if (!modal) {
+            return;
+        }
+
+        const dialog = modal.querySelector('.app-confirm-dialog');
+        const messageEl = modal.querySelector('[data-confirm-message]');
+        const acceptBtn = modal.querySelector('[data-confirm-accept]');
+        const cancelBtns = modal.querySelectorAll('[data-confirm-cancel]');
+        let pendingForm = null;
+        let pendingSubmitter = null;
+        let pendingCallback = null;
+        let lastFocus = null;
+
+        function closeDialog() {
+            modal.hidden = true;
+            modal.classList.remove('is-open');
+            pendingForm = null;
+            pendingSubmitter = null;
+            pendingCallback = null;
+            document.body.classList.remove('app-modal-open');
+
+            if (lastFocus && typeof lastFocus.focus === 'function') {
+                lastFocus.focus();
+            }
+            lastFocus = null;
+        }
+
+        function openDialog(message, form, submitter, callback) {
+            pendingForm = form || null;
+            pendingSubmitter = submitter || null;
+            pendingCallback = callback || null;
+            lastFocus = document.activeElement;
+            messageEl.textContent = message || 'Are you sure you want to proceed?';
+            modal.hidden = false;
+            modal.classList.add('is-open');
+            document.body.classList.add('app-modal-open');
+            window.setTimeout(function() {
+                dialog.focus();
+            }, 0);
+        }
+
+        document.querySelectorAll('form[data-confirm]').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                if (form.dataset.confirmBypass === 'true') {
+                    delete form.dataset.confirmBypass;
+                    return;
+                }
+
+                if (e.defaultPrevented) {
+                    return;
+                }
+
+                e.preventDefault();
+                const submitter = e.submitter;
+                const message = (submitter && submitter.dataset.confirm) || form.dataset.confirm;
+                openDialog(message, form, submitter);
+            });
+        });
+
+        document.querySelectorAll('button[data-confirm], input[data-confirm]').forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                const form = button.form;
+                if (!form) {
+                    return;
+                }
+
+                e.preventDefault();
+                openDialog(button.dataset.confirm, form, button);
+            });
+        });
+
+        acceptBtn.addEventListener('click', function() {
+            if (!pendingForm && !pendingCallback) {
+                closeDialog();
+                return;
+            }
+
+            const form = pendingForm;
+            const submitter = pendingSubmitter;
+            const callback = pendingCallback;
+            closeDialog();
+
+            if (typeof callback === 'function') {
+                callback();
+                return;
+            }
+
+            form.dataset.confirmBypass = 'true';
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit(submitter || undefined);
+            } else {
+                form.submit();
+            }
+        });
+
+        cancelBtns.forEach(function(button) {
+            button.addEventListener('click', closeDialog);
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (modal.hidden || e.key !== 'Escape') {
+                return;
+            }
+            closeDialog();
+        });
+
+        window.confirmAction = function(message, onConfirm) {
+            openDialog(message || 'Are you sure you want to proceed?', null, null, onConfirm);
+            return false;
+        };
+    }
+
+    window.confirmAction = function(message, onConfirm) {
+        if (typeof onConfirm === 'function') {
+            onConfirm();
+        }
+        return false;
     };
 
     /**

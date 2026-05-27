@@ -409,6 +409,92 @@ a:hover {
 }
 
 /* ========================================
+   App Modal
+   ======================================== */
+body.app-modal-open {
+    overflow: hidden;
+}
+
+.app-confirm-modal[hidden] {
+    display: none !important;
+}
+
+.app-confirm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+}
+
+.app-confirm-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 8, 13, 0.76);
+    backdrop-filter: blur(10px);
+}
+
+.app-confirm-dialog {
+    position: relative;
+    width: min(440px, 100%);
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at top left, rgba(242, 111, 42, 0.16), transparent 36%),
+        linear-gradient(145deg, #111a25 0%, #0d141d 100%);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+
+.app-confirm-mark {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    color: #fed7aa;
+    background: rgba(242, 111, 42, 0.14);
+    border: 1px solid rgba(242, 111, 42, 0.35);
+    font-weight: 800;
+    font-size: 1.35rem;
+    box-shadow: 0 0 28px rgba(242, 111, 42, 0.18);
+}
+
+.app-confirm-copy {
+    display: grid;
+    gap: 8px;
+}
+
+.app-confirm-eyebrow {
+    color: var(--color-primary-light);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.app-confirm-dialog h2 {
+    color: var(--color-text-primary);
+    font-size: 1.35rem;
+    line-height: 1.2;
+}
+
+.app-confirm-dialog p {
+    color: var(--color-text-secondary);
+}
+
+.app-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+/* ========================================
    Forms
    ======================================== */
 .form-group {
@@ -894,6 +980,10 @@ a:hover {
     position: relative;
 }
 
+.settings-metrics-table tbody tr.inactive {
+    opacity: 1;
+}
+
 .settings-metrics-table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.015);
 }
@@ -1113,9 +1203,11 @@ a:hover {
     opacity: 0.58;
 }
 
+.settings-metrics-table tbody tr.inactive td.settings-row-tools,
 .settings-metrics-table tbody tr.inactive .settings-row-menu,
 .settings-metrics-table tbody tr.inactive .settings-row-menu-panel,
-.settings-metrics-table tbody tr.inactive .settings-menu-trigger {
+.settings-metrics-table tbody tr.inactive .settings-menu-trigger,
+.settings-metrics-table tbody tr.inactive .settings-row-menu-item {
     opacity: 1;
     filter: none;
 }

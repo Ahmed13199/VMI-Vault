@@ -85,7 +85,7 @@
                 <span class="sales-resource-type">{{ 'File' if resource.resource_type == 'file' else 'Link' }}</span>
                 <a href="{{ url_for('sales_team.open_resource', resource_id=resource.id) }}" class="btn btn-small btn-secondary" target="_blank" rel="noopener noreferrer">Open</a>
                 {% if can_manage %}
-                <form method="POST" action="{{ url_for('sales_team.delete_resource', resource_id=resource.id) }}" class="inline-form" onsubmit="return confirm('Delete this resource?');">
+                <form method="POST" action="{{ url_for('sales_team.delete_resource', resource_id=resource.id) }}" class="inline-form" data-confirm="Delete this resource?">
                     <button type="submit" class="btn btn-small btn-danger">Delete</button>
                 </form>
                 {% endif %}
@@ -213,7 +213,7 @@
                     <div class="sales-stat">{{ partition.sections|length }} section{{ '' if partition.sections|length == 1 else 's' }}</div>
                     <div class="sales-stat">{{ partition.resources|length }} doc{{ '' if partition.resources|length == 1 else 's' }}</div>
                     {% if can_manage_selected_team %}
-                    <form method="POST" action="{{ url_for('sales_team.delete_partition', partition_id=partition.id) }}" class="inline-form" onsubmit="return confirm('Delete this section group and everything inside it?');">
+                    <form method="POST" action="{{ url_for('sales_team.delete_partition', partition_id=partition.id) }}" class="inline-form" data-confirm="Delete this section group and everything inside it?">
                         <button type="submit" class="btn btn-small btn-danger">Delete Group</button>
                     </form>
                     {% endif %}
@@ -271,7 +271,7 @@
                     <div class="guidelines-tree-body">
                         {% if can_manage_selected_team %}
                         <div class="sales-stack-actions">
-                            <form method="POST" action="{{ url_for('sales_team.delete_section', section_id=section.id) }}" class="inline-form" onsubmit="return confirm('Delete this section and all subsections inside it?');">
+                            <form method="POST" action="{{ url_for('sales_team.delete_section', section_id=section.id) }}" class="inline-form" data-confirm="Delete this section and all subsections inside it?">
                                 <button type="submit" class="btn btn-small btn-danger">Delete Section</button>
                             </form>
                         </div>
@@ -327,7 +327,7 @@
                                 <div class="guidelines-tree-body">
                                     {% if can_manage_selected_team %}
                                     <div class="sales-stack-actions">
-                                        <form method="POST" action="{{ url_for('sales_team.delete_subsection', subsection_id=subsection.id) }}" class="inline-form" onsubmit="return confirm('Delete this subsection and all resources inside it?');">
+                                        <form method="POST" action="{{ url_for('sales_team.delete_subsection', subsection_id=subsection.id) }}" class="inline-form" data-confirm="Delete this subsection and all resources inside it?">
                                             <button type="submit" class="btn btn-small btn-danger">Delete Subsection</button>
                                         </form>
                                     </div>

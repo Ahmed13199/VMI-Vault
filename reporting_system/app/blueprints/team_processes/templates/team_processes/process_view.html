@@ -12,7 +12,7 @@
     <a href="{{ url_for('team_processes.team', team_id=team.id) }}" class="btn btn-secondary">Back</a>
     {% if current_user.can_edit_page('team_processes') and (current_user.is_admin() or (process.created_by_user_id and process.created_by_user_id == current_user.id) or (process.created_by_user_id is none and current_user.team_id == team.id)) %}
         <a href="{{ url_for('team_processes.edit_process', team_id=team.id, process_id=process.id) }}" class="btn btn-secondary">Edit</a>
-        <form method="POST" action="{{ url_for('team_processes.delete_process', team_id=team.id, process_id=process.id) }}" class="inline-form" onsubmit="return confirm('Delete this process?');">
+        <form method="POST" action="{{ url_for('team_processes.delete_process', team_id=team.id, process_id=process.id) }}" class="inline-form" data-confirm="Delete this process?">
             <button type="submit" class="btn btn-danger">Delete</button>
         </form>
     {% endif %}
@@ -26,7 +26,7 @@
                     {% if current_user.can_edit_page('team_processes') and (current_user.is_admin() or (process.created_by_user_id and process.created_by_user_id == current_user.id) or (s.created_by_user_id and s.created_by_user_id == current_user.id)) %}
                         <div class="tp-section-actions">
                             <a href="{{ url_for('team_processes.edit_section', team_id=team.id, process_id=process.id, section_id=s.id) }}" class="btn btn-small btn-secondary">Edit</a>
-                            <form method="POST" action="{{ url_for('team_processes.delete_section', team_id=team.id, process_id=process.id, section_id=s.id) }}" class="inline-form" onsubmit="return confirm('Delete this section?');">
+                            <form method="POST" action="{{ url_for('team_processes.delete_section', team_id=team.id, process_id=process.id, section_id=s.id) }}" class="inline-form" data-confirm="Delete this section?">
                                 <button type="submit" class="btn btn-small btn-danger">Delete</button>
                             </form>
                         </div>

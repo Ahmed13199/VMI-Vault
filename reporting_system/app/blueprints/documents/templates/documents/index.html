@@ -114,7 +114,7 @@
                         <span style="display: inline-flex; align-items: center; gap: var(--spacing-sm);">
                             <span class="tp-meta">folder</span>
                             {% if current_user.can_edit_page('documents') %}
-                            <form class="inline-form" method="post" action="{{ url_for('documents.delete_folder', folder_id=f.id) }}" onsubmit="return confirm('Delete this folder and everything inside it? This cannot be undone.');">
+                            <form class="inline-form" method="post" action="{{ url_for('documents.delete_folder', folder_id=f.id) }}" data-confirm="Delete this folder and everything inside it? This cannot be undone.">
                                 <button type="submit" class="btn btn-small btn-danger">Delete</button>
                             </form>
                             {% endif %}
@@ -156,7 +156,7 @@
                                 <div class="form-actions" style="margin-top: var(--spacing-lg);">
                                     <a class="btn btn-small" href="{{ url_for('documents.view_document', document_id=d.id) }}" target="_blank" rel="noopener noreferrer">View</a>
                                     {% if current_user.can_edit_page('documents') %}
-                                    <form class="inline-form" method="post" action="{{ url_for('documents.delete_document', document_id=d.id) }}" onsubmit="return confirm('Delete this document? This cannot be undone.');">
+                                    <form class="inline-form" method="post" action="{{ url_for('documents.delete_document', document_id=d.id) }}" data-confirm="Delete this document? This cannot be undone.">
                                         <button type="submit" class="btn btn-small btn-danger">Delete</button>
                                     </form>
                                     {% endif %}

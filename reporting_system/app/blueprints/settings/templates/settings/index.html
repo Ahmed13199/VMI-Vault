@@ -192,7 +192,7 @@
                                     Edit
                                 </a>
                                 {% if metric.active %}
-                                <form method="POST" action="{{ url_for('settings.deactivate_metric', metric_id=metric.id) }}" class="settings-row-menu-form" onsubmit="return confirm('Deactivate this metric? You will NOT be able to reuse the same key while it is inactive.');">
+                                <form method="POST" action="{{ url_for('settings.deactivate_metric', metric_id=metric.id) }}" class="settings-row-menu-form" data-confirm="Deactivate this metric? You will NOT be able to reuse the same key while it is inactive.">
                                     <button type="submit" class="settings-row-menu-item settings-row-menu-item-warning">
                                         Deactivate
                                     </button>
@@ -204,7 +204,7 @@
                                     </button>
                                 </form>
                                 {% endif %}
-                                <form method="POST" action="{{ url_for('settings.delete_metric_permanently', metric_id=metric.id) }}" class="settings-row-menu-form" onsubmit="return confirm('PERMANENTLY delete this metric AND all its saved values? This cannot be undone. This will be blocked if the metric is referenced by derived formulas.');">
+                                <form method="POST" action="{{ url_for('settings.delete_metric_permanently', metric_id=metric.id) }}" class="settings-row-menu-form" data-confirm="PERMANENTLY delete this metric AND all its saved values? This cannot be undone. This will be blocked if the metric is referenced by derived formulas.">
                                     <button type="submit" class="settings-row-menu-item settings-row-menu-item-danger">
                                         Delete permanently
                                     </button>
@@ -557,7 +557,7 @@
                             <td>{{ team_user_counts.get(team.id, 0) }}</td>
                             <td class="actions">
                                 <button type="button" class="btn btn-small btn-secondary" data-user-edit-toggle="teamEdit{{ team.id }}">Edit</button>
-                                <form method="POST" action="{{ url_for('settings.delete_team', team_id=team.id) }}" class="inline-form" onsubmit="return confirm('Delete this team? This is blocked if the team is assigned anywhere.');">
+                                <form method="POST" action="{{ url_for('settings.delete_team', team_id=team.id) }}" class="inline-form" data-confirm="Delete this team? This is blocked if the team is assigned anywhere.">
                                     <button type="submit" class="btn btn-small btn-danger">Delete</button>
                                 </form>
                             </td>

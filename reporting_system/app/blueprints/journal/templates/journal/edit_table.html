@@ -30,7 +30,7 @@
                 class="btn btn-danger"
                 formmethod="POST"
                 formaction="{{ url_for('journal.delete_table', table_id=table.id) }}"
-                onclick="return confirm('Delete this table? This cannot be undone.');">
+                data-confirm="Delete this table? This cannot be undone.">
             Delete
         </button>
     </div>
