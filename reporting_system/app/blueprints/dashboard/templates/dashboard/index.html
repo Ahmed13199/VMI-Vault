@@ -9,7 +9,7 @@
 </div>
 
 <!-- Period Filter -->
-<div class="filter-bar">
+<div class="filter-bar dashboard-filter-bar">
     <form method="GET" action="{{ url_for('dashboard.index') }}" class="filter-form">
         <div class="form-group inline">
             <label for="period_id">Reporting Period:</label>
@@ -23,6 +23,23 @@
                 {% endfor %}
             </select>
         </div>
+        {% if current_user.is_admin() and all_teams %}
+        <div class="form-group inline dashboard-team-filter">
+            <span class="dashboard-filter-label">Show Teams:</span>
+            <div class="dashboard-team-options">
+                {% for team in all_teams %}
+                <label class="dashboard-team-option">
+                    <input type="checkbox"
+                           name="team_id"
+                           value="{{ team.id }}"
+                           {% if team.id in selected_team_ids %}checked{% endif %}
+                           onchange="this.form.submit()">
+                    <span>{{ team.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </form>
 </div>
 
@@ -46,17 +63,51 @@
 <!-- Dashboard Content -->
 {% for team_data in dashboard_data %}
 <section class="team-section">
-    <h2 class="section-title">{{ team_data.team.name }}</h2>
+    <div class="dashboard-team-heading">
+        <div>
+            <h2 class="section-title">{{ team_data.team.name }}</h2>
+            <div class="dashboard-team-summary">
+                {{ team_data.base_metrics|length }} metrics &bull;
+                {{ team_data.metrics_with_limits_count }} with limits &bull;
+                {{ team_data.without_limit_count }} without limits
+            </div>
+        </div>
+        <div class="dashboard-limit-summary">
+            <div class="dashboard-limit-count within-limit">
+                <strong>{{ team_data.within_limit_count }}</strong>
+                <span>Within limit</span>
+            </div>
+            <div class="dashboard-limit-count limit-exceeded">
+                <strong>{{ team_data.limit_exceeded_count }}</strong>
+                <span>Exceeding</span>
+            </div>
+        </div>
+    </div>
     
     <!-- Base Metrics (Layer 1) -->
     <div class="metrics-section">
         <h3>Base Metrics</h3>
         <div class="kpi-cards">
             {% for item in team_data.base_metrics %}
-            <div class="kpi-card">
+            <div class="kpi-card metric-instrument-card {{ item.limit_status }} {% if item.achievement_stars %}has-achievement{% endif %}" style="--metric-progress: {{ '%.1f'|format(item.limit_progress_pct) }}%;">
+                {% if item.achievement_stars %}
+                <div class="achievement-stars" aria-label="{{ item.achievement_stars }} star achievement">
+                    {% for _ in range(item.achievement_stars) %}<span aria-hidden="true">★</span>{% endfor %}
+                </div>
+                {% endif %}
                 <div class="kpi-label">{{ item.metric.display_name }}</div>
-                <div class="kpi-value">{{ item.formatted }}</div>
-                <div class="kpi-unit">{{ item.metric.unit }}</div>
+                <div class="metric-gauge" aria-hidden="true">
+                    <div class="metric-gauge-inner">
+                        <div class="kpi-value">{{ item.formatted }}</div>
+                        <div class="kpi-unit">{{ item.metric.unit }}</div>
+                    </div>
+                </div>
+                {% if item.target is not none %}
+                <div class="metric-limit-scale" aria-hidden="true">
+                    <div class="metric-limit-scale-fill"></div>
+                </div>
+                <div class="kpi-limit">Limit: {{ item.target_formatted }}</div>
+                {% endif %}
             </div>
             {% else %}
             <p class="no-data">No base metrics defined.</p>

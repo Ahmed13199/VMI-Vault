@@ -126,12 +126,15 @@
                     <td>{{ metric.unit }}</td>
                     <td>
                         {% if current_user.can_edit_page('reporting_input') %}
-                        <input type="number" 
-                               name="metric_{{ metric.id }}"
-                               step="any"
-                               class="input-value"
-                               placeholder="Enter value"
-                               value="{{ existing_values.get(metric.key, {}).get('value', '') }}">
+                        <div class="number-entry-field">
+                            <input type="number"
+                                   name="metric_{{ metric.id }}"
+                                   step="any"
+                                   class="input-value"
+                                   placeholder="Enter value"
+                                   aria-label="{{ metric.display_name }} value"
+                                   value="{{ existing_values.get(metric.key, {}).get('value', '') }}">
+                        </div>
                         {% else %}
                         {{ existing_values.get(metric.key, {}).get('value', 'N/A') }}
                         {% endif %}
@@ -141,12 +144,15 @@
                     </td>
                     <td>
                         {% if current_user.can_edit_page('reporting_input') %}
-                        <input type="number"
-                               name="target_{{ metric.id }}"
-                               step="any"
-                               class="input-value"
-                               placeholder="Optional target"
-                               value="{{ existing_values.get(metric.key, {}).get('target', '') }}">
+                        <div class="number-entry-field number-entry-field-target">
+                            <input type="number"
+                                   name="target_{{ metric.id }}"
+                                   step="any"
+                                   class="input-value"
+                                   placeholder="Optional target"
+                                   aria-label="{{ metric.display_name }} target"
+                                   value="{{ existing_values.get(metric.key, {}).get('target', '') }}">
+                        </div>
                         {% else %}
                         {{ existing_values.get(metric.key, {}).get('target', 'N/A') }}
                         {% endif %}
