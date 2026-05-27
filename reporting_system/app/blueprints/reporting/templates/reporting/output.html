@@ -221,7 +221,12 @@
                                 <div class="results-subcategory-header">{{ sub_name }}</div>
                                 <div class="results-grid" data-results-grid>
                                     {% for item in items %}
-                                    <div class="metric-card" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                    <div class="metric-card metric-instrument-card {% if item.target is not none %}metric-card-target-{{ item.target_delta_status }}{% endif %} {% if item.achievement_stars %}has-achievement{% endif %}" style="--metric-progress: {{ '%.1f'|format(item.limit_progress_pct) }}%;" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                        {% if item.achievement_stars %}
+                                        <div class="achievement-stars metric-achievement-stars" aria-label="{{ item.achievement_stars }} star achievement">
+                                            {% for _ in range(item.achievement_stars) %}<span aria-hidden="true">★</span>{% endfor %}
+                                        </div>
+                                        {% endif %}
                                         <div class="metric-card-header">
                                             <div class="metric-head">
                                                 <div class="metric-name">{{ item.metric.display_name }}</div>
@@ -240,10 +245,15 @@
                                         <div class="metric-card-body">
                                             <div class="metric-card-value-row">
                                                 <div class="metric-card-value {% if item.value is none %}no-data{% endif %}">
-                                                    {{ item.formatted }}
+                                                    <div class="metric-gauge" aria-hidden="true">
+                                                        <div class="metric-gauge-inner">
+                                                            <div>{{ item.formatted }}</div>
+                                                            <div class="metric-gauge-unit">{{ item.metric.unit }}</div>
+                                                        </div>
+                                                    </div>
                                                     {% if item.target is not none and item.target_formatted %}
-                                                        <span class="metric-target-inline">
-                                                            / {{ item.target_formatted }}
+                                                        <div class="metric-target-inline">
+                                                            <span>Limit: {{ item.target_formatted }}</span>
                                                             {% if item.target_diff_pct is not none or item.target_diff is not none %}
                                                                 <span class="metric-target-diff metric-delta metric-delta-{{ item.target_delta_status }}" title="Compared to target">
                                                                     {% if item.target_diff_pct is not none %}
@@ -253,9 +263,14 @@
                                                                     {% endif %}
                                                                 </span>
                                                             {% endif %}
-                                                        </span>
+                                                        </div>
                                                     {% endif %}
                                                 </div>
+                                                {% if item.target is not none %}
+                                                <div class="metric-limit-scale" aria-hidden="true">
+                                                    <div class="metric-limit-scale-fill"></div>
+                                                </div>
+                                                {% endif %}
                                                 <div class="metric-delta metric-delta-{{ item.delta_status }}" title="Compared to previous period">
                                                     {% if item.delta_pct is not none and item.delta_pct > 0 %}
                                                     <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

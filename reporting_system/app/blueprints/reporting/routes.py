@@ -314,12 +314,49 @@ def output():
             except (TypeError, ValueError):
                 return 'neutral'
             if abs(v - t) < 1e-12:
+                if trend_direction in ('higher_is_better', 'lower_is_better'):
+                    return 'good'
                 return 'neutral'
             if trend_direction == 'higher_is_better':
                 return 'good' if v >= t else 'bad'
             if trend_direction == 'lower_is_better':
                 return 'good' if v <= t else 'bad'
             return 'neutral'
+
+        def compute_achievement_stars(value, target, trend_direction):
+            if value is None or target is None:
+                return 0
+            try:
+                v = float(value)
+                t = float(target)
+            except (TypeError, ValueError):
+                return 0
+
+            improvement = None
+            if trend_direction == 'higher_is_better' and v > t:
+                improvement = (v - t) / abs(t) if abs(t) > 1e-12 else v - t
+            elif trend_direction == 'lower_is_better' and v < t:
+                improvement = (t - v) / abs(t) if abs(t) > 1e-12 else t - v
+
+            if improvement is None or improvement <= 0:
+                return 0
+            if improvement >= 0.5:
+                return 3
+            if improvement >= 0.2:
+                return 2
+            return 1
+
+        def compute_limit_progress_pct(value, target):
+            if value is None or target is None:
+                return 0
+            try:
+                v = abs(float(value))
+                t = abs(float(target))
+            except (TypeError, ValueError):
+                return 0
+            if t <= 1e-12:
+                return 100 if v > 0 else 0
+            return max(0, min((v / t) * 100.0, 100))
 
         for metric in base_metrics:
             entry = base_values_with_targets.get(metric.key) or {}
@@ -348,6 +385,8 @@ def output():
                 'target_diff': target_diff,
                 'target_diff_pct': target_diff_pct,
                 'target_delta_status': target_delta_status,
+                'achievement_stars': compute_achievement_stars(value, target, getattr(metric, 'trend_direction', 'neutral')),
+                'limit_progress_pct': compute_limit_progress_pct(value, target),
                 'prev_value': prev_value,
                 'delta_pct': delta_pct,
                 'delta_status': classify_delta(delta_pct, getattr(metric, 'trend_direction', 'neutral')),
