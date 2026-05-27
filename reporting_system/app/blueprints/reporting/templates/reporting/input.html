@@ -133,7 +133,7 @@
                                    class="input-value"
                                    placeholder="Enter value"
                                    aria-label="{{ metric.display_name }} value"
-                                   value="{{ existing_values.get(metric.key, {}).get('value', '') }}">
+                                   value="{{ existing_values.get(metric.key, {}).get('value', '') if existing_values.get(metric.key, {}).get('value') is not none else '' }}">
                         </div>
                         {% else %}
                         {{ existing_values.get(metric.key, {}).get('value', 'N/A') }}
@@ -151,7 +151,7 @@
                                    class="input-value"
                                    placeholder="Optional target"
                                    aria-label="{{ metric.display_name }} target"
-                                   value="{{ existing_values.get(metric.key, {}).get('target', '') }}">
+                                   value="{{ existing_values.get(metric.key, {}).get('target', '') if existing_values.get(metric.key, {}).get('target') is not none else '' }}">
                         </div>
                         {% else %}
                         {{ existing_values.get(metric.key, {}).get('target', 'N/A') }}

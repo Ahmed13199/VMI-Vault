@@ -14,14 +14,8 @@ from ...extensions import db
 from ...models.metric import ReportingPeriod
 
 
-@reporting_bp.route('/input', methods=['GET', 'POST'])
-@login_required
-@require_page_permission('reporting_input')
-def input():
-    """
-    Data entry page for layer 1 metrics.
-    """
-    # Ensure and load weekly periods from week 40 to next week for current year
+def _weekly_period_window():
+    """Return generated weekly periods from week 40 through the next generated week."""
     MetricsService.ensure_weekly_periods_for_current_year(start_week=40)
     iso_year, iso_week, _ = date.today().isocalendar()
     start_week = 40
@@ -39,13 +33,34 @@ def input():
         end_bound = date.fromisocalendar(iso_year, last_week, 7)
     except ValueError:
         end_bound = date(iso_year, 12, 31)
-    periods = (ReportingPeriod.query
-               .filter(ReportingPeriod.period_type == 'weekly')
-               .filter(ReportingPeriod.start_date >= start_bound)
-               .filter(ReportingPeriod.end_date <= end_bound)
-               .order_by(ReportingPeriod.start_date.desc())
-               .all())
+
+    return (ReportingPeriod.query
+            .filter(ReportingPeriod.period_type == 'weekly')
+            .filter(ReportingPeriod.start_date >= start_bound)
+            .filter(ReportingPeriod.end_date <= end_bound)
+            .order_by(ReportingPeriod.start_date.desc())
+            .all())
+
+
+@reporting_bp.route('/input', methods=['GET', 'POST'])
+@login_required
+@require_page_permission('reporting_input')
+def input():
+    """
+    Data entry page for layer 1 metrics.
+    """
+    # Data entry is limited to the two completed weeks before the latest generated week.
+    periods = _weekly_period_window()[1:3]
     teams = MetricsService.get_all_teams()
+
+    def get_previous_period(period):
+        if not period:
+            return None
+        return (ReportingPeriod.query
+                .filter(ReportingPeriod.period_type == period.period_type)
+                .filter(ReportingPeriod.start_date < period.start_date)
+                .order_by(ReportingPeriod.start_date.desc())
+                .first())
     
     # Determine user's team
     user_team = current_user.team
@@ -60,6 +75,10 @@ def input():
     selected_period = None
     if period_id:
         selected_period = MetricsService.get_period_by_id(period_id)
+        if selected_period and selected_period.id not in {period.id for period in periods}:
+            selected_period = None
+    if not selected_period and periods:
+        selected_period = periods[0]
     
     # Handle form submission
     if request.method == 'POST':
@@ -104,6 +123,11 @@ def input():
             else:
                 selected_period = MetricsService.get_period_by_id(period_id)
                 user_team = MetricsService.get_team_by_id(team_id)
+                previous_period = get_previous_period(selected_period)
+                previous_values_with_targets = (
+                    MetricsService.get_metric_values_with_targets(team_id, previous_period.id)
+                    if previous_period else {}
+                )
                 
                 # Get base metrics for this team
                 base_metrics = MetricsService.get_base_metrics_for_team(team_id)
@@ -118,6 +142,8 @@ def input():
                             target = None
                             if target_str:
                                 target = float(target_str)
+                            elif previous_values_with_targets.get(metric.key, {}).get('target') is not None:
+                                target = previous_values_with_targets[metric.key]['target']
                             MetricsService.save_metric_value_with_target(metric.id, team_id, period_id, value, target)
                             saved_count += 1
                         except ValueError:
@@ -135,16 +161,40 @@ def input():
     existing_values = {}
     previous_period = None
     previous_values = {}
+    previous_values_with_targets = {}
     
     if user_team and selected_period:
         base_metrics = MetricsService.get_base_metrics_for_team(user_team.id)
         existing_values = MetricsService.get_metric_values_with_targets(user_team.id, selected_period.id)
-        previous_period = (ReportingPeriod.query
-                           .filter(ReportingPeriod.period_type == selected_period.period_type)
-                           .filter(ReportingPeriod.start_date < selected_period.start_date)
-                           .order_by(ReportingPeriod.start_date.desc())
-                           .first())
-        previous_values = MetricsService.get_metric_values(user_team.id, previous_period.id) if previous_period else {}
+        previous_period = get_previous_period(selected_period)
+        if previous_period:
+            previous_values = MetricsService.get_metric_values(user_team.id, previous_period.id)
+            previous_values_with_targets = MetricsService.get_metric_values_with_targets(user_team.id, previous_period.id)
+
+        for metric in base_metrics:
+            current_entry = existing_values.get(metric.key)
+            previous_target = previous_values_with_targets.get(metric.key, {}).get('target')
+            if previous_target is None:
+                continue
+
+            if current_entry is None:
+                existing_values[metric.key] = {
+                    'value': '',
+                    'target': previous_target,
+                }
+                continue
+
+            if current_entry.get('target') is None:
+                current_entry['target'] = previous_target
+                current_value = current_entry.get('value')
+                if current_value is not None:
+                    MetricsService.save_metric_value_with_target(
+                        metric.id,
+                        user_team.id,
+                        selected_period.id,
+                        current_value,
+                        previous_target,
+                    )
     
     return render_template('reporting/input.html',
                           periods=periods,
@@ -165,30 +215,8 @@ def output():
     """
     Results/output page showing all metrics for a period.
     """
-    # Ensure and load weekly periods from week 40 to next week for current year
-    MetricsService.ensure_weekly_periods_for_current_year(start_week=40)
-    iso_year, iso_week, _ = date.today().isocalendar()
-    start_week = 40
-    last_week = min(iso_week + 1, 53)
-
-    # Around end-of-year, ISO week/year can roll over (e.g. Dec 29 might be ISO week 1
-    # of the next ISO year). In that case, the window "week 40 -> next week" spans the
-    # previous ISO year and the current ISO year.
-    try:
-        start_bound_year = iso_year - 1 if iso_week < start_week else iso_year
-        start_bound = date.fromisocalendar(start_bound_year, start_week, 1)
-    except ValueError:
-        start_bound = date(iso_year, 1, 1)
-    try:
-        end_bound = date.fromisocalendar(iso_year, last_week, 7)
-    except ValueError:
-        end_bound = date(iso_year, 12, 31)
-    periods = (ReportingPeriod.query
-               .filter(ReportingPeriod.period_type == 'weekly')
-               .filter(ReportingPeriod.start_date >= start_bound)
-               .filter(ReportingPeriod.end_date <= end_bound)
-               .order_by(ReportingPeriod.start_date.desc())
-               .all())
+    # Results start from the previous completed week and continue backward.
+    periods = _weekly_period_window()[1:]
     teams = MetricsService.get_all_teams()
     
     # Get selected team
@@ -208,7 +236,9 @@ def output():
     
     if period_id:
         selected_period = MetricsService.get_period_by_id(period_id)
-    elif periods:
+        if selected_period and selected_period.id not in {period.id for period in periods}:
+            selected_period = None
+    if not selected_period and periods:
         selected_period = periods[0]
     
     # Build results

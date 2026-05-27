@@ -441,6 +441,36 @@ a:hover {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.form-group select {
+    color-scheme: dark;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-primary) var(--color-header);
+}
+
+.form-group select option {
+    background-color: var(--color-header);
+    color: var(--color-text-primary);
+}
+
+.form-group select::-webkit-scrollbar {
+    width: 10px;
+}
+
+.form-group select::-webkit-scrollbar-track {
+    background: var(--color-header);
+    border-radius: 999px;
+}
+
+.form-group select::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary-dark));
+    border: 2px solid var(--color-header);
+    border-radius: 999px;
+}
+
+.form-group select::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
 .form-group input::placeholder,
 .form-group textarea::placeholder {
     color: var(--color-text-muted);
