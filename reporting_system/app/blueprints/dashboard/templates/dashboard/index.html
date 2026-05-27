@@ -89,25 +89,60 @@
         <h3>Base Metrics</h3>
         <div class="kpi-cards">
             {% for item in team_data.base_metrics %}
-            <div class="kpi-card metric-instrument-card {{ item.limit_status }} {% if item.achievement_stars %}has-achievement{% endif %}" style="--metric-progress: {{ '%.1f'|format(item.limit_progress_pct) }}%;">
-                {% if item.achievement_stars %}
-                <div class="achievement-stars" aria-label="{{ item.achievement_stars }} star achievement">
-                    {% for _ in range(item.achievement_stars) %}<span aria-hidden="true">★</span>{% endfor %}
+            <div class="mcard {{ item.card_color }}">
+                <div class="card-top">
+                    <p class="card-title">{{ item.metric_title }}</p>
                 </div>
-                {% endif %}
-                <div class="kpi-label">{{ item.metric.display_name }}</div>
-                <div class="metric-gauge" aria-hidden="true">
-                    <div class="metric-gauge-inner">
-                        <div class="kpi-value">{{ item.formatted }}</div>
-                        <div class="kpi-unit">{{ item.metric.unit }}</div>
-                    </div>
+
+                <div class="name-row">
+                    <div class="avatar">{{ item.subject_initial }}</div>
+                    <span class="name-label">{{ item.subject_label }}</span>
                 </div>
-                {% if item.target is not none %}
-                <div class="metric-limit-scale" aria-hidden="true">
-                    <div class="metric-limit-scale-fill"></div>
+
+                <div class="circle-wrap">
+                    <svg class="metric-ring" viewBox="0 0 164 164" role="img" aria-label="{{ item.metric.display_name }} value {{ item.formatted }}">
+                        <defs>
+                            <filter id="glow-dashboard-{{ team_data.team.id }}-{{ item.metric.id }}">
+                                <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <circle cx="82" cy="82" r="68" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="13"/>
+                        <circle cx="82" cy="82" r="68" fill="none" class="ring-progress" stroke-width="13"
+                               stroke-linecap="round"
+                               stroke-dasharray="427.26"
+                               stroke-dashoffset="{{ '%.2f'|format(item.ring_offset) }}"
+                               transform="rotate(-90 82 82)"
+                               filter="url(#glow-dashboard-{{ team_data.team.id }}-{{ item.metric.id }})"/>
+                        {% if item.card_color == 'red' and item.limit_ratio_pct and item.limit_ratio_pct > 100 %}
+                        <circle cx="82" cy="82" r="68" fill="none" stroke="rgba(255,255,255,0.24)" stroke-width="13"
+                               stroke-linecap="round"
+                               stroke-dasharray="427.26"
+                               stroke-dashoffset="354"
+                               transform="rotate(-90 82 82)"/>
+                        {% endif %}
+                        <text x="82" y="70" text-anchor="middle" class="ring-value {% if item.metric.unit == 'percent' %}ring-value-percent{% endif %} {% if item.formatted|string|length > 7 %}ring-value-long{% endif %}">{{ item.formatted }}</text>
+                        <text x="82" y="102" text-anchor="middle" class="ring-ratio">{{ item.ratio_label }}</text>
+                    </svg>
                 </div>
-                <div class="kpi-limit">Limit: {{ item.target_formatted }}</div>
-                {% endif %}
+
+                <div class="limit-badge">
+                    <span class="limit-flag" aria-hidden="true"></span>
+                    {% if item.target is not none %}
+                    Limit: <strong>{{ item.target_formatted }}</strong>
+                    {% else %}
+                    <strong>No limit set</strong>
+                    {% endif %}
+                    {% if item.card_color == 'red' and item.limit_delta_label %}
+                    <span class="over-tag">{{ item.limit_delta_label }}</span>
+                    {% endif %}
+                </div>
+
+                <hr class="divider">
+                <div class="footer">
+                    <span class="trend">{{ item.previous_delta_label }}</span>
+                    <span class="week">{{ item.period_label }}</span>
+                </div>
             </div>
             {% else %}
             <p class="no-data">No base metrics defined.</p>

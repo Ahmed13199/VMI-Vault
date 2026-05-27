@@ -93,6 +93,65 @@ def index():
         if t <= 1e-12:
             return 100 if v > 0 else 0
         return max(0, min((v / t) * 100.0, 100))
+
+    def compute_limit_ratio_pct(value, target):
+        if value is None or target is None:
+            return None
+        try:
+            v = abs(float(value))
+            t = abs(float(target))
+        except (TypeError, ValueError):
+            return None
+        if t <= 1e-12:
+            return None
+        return (v / t) * 100.0
+
+    def compute_ring_offset(progress_pct):
+        circumference = 427.26
+        return circumference - ((progress_pct or 0) / 100.0) * circumference
+
+    def split_metric_name(display_name):
+        parts = (display_name or '').strip().split(' ', 1)
+        subject = parts[0] if parts and parts[0] else 'Metric'
+        title = parts[1] if len(parts) > 1 else display_name
+        return subject, title
+
+    def format_limit_difference(value, target, trend_direction):
+        if value is None or target is None:
+            return None
+        try:
+            diff = float(value) - float(target)
+        except (TypeError, ValueError):
+            return None
+        if abs(diff) < 1e-12:
+            return None
+        formatted = FormulaService.format_value(abs(diff), 'number')
+        if trend_direction == 'higher_is_better':
+            return f'+{formatted} above' if diff > 0 else f'-{formatted} under'
+        return f'+{formatted} over' if diff > 0 else f'-{formatted} under'
+
+    def format_previous_delta(value, previous_value, trend_direction):
+        if value is None or previous_value is None:
+            return 'No previous data'
+        try:
+            diff = float(value) - float(previous_value)
+        except (TypeError, ValueError):
+            return 'No previous data'
+        if abs(diff) < 1e-12:
+            return 'No change from last week'
+        direction = 'up' if diff > 0 else 'down'
+        formatted = FormulaService.format_value(abs(diff), 'number')
+        sign = '+' if diff > 0 else '-'
+        return f'{sign}{formatted} from last week'
+
+    def status_label(limit_status, trend_direction):
+        if limit_status == 'no-limit':
+            return 'No limit'
+        if limit_status == 'within-limit':
+            return 'Within target' if trend_direction != 'higher_is_better' else 'Target met'
+        if trend_direction == 'higher_is_better':
+            return 'Below target'
+        return 'Over limit'
     
     # Build dashboard data
     dashboard_data = []
@@ -115,17 +174,30 @@ def index():
                 key: entry.get('value')
                 for key, entry in base_values_with_targets.items()
             }
+            previous_period = None
+            prev_base_values = {}
+            for period in periods:
+                if selected_period and period.start_date < selected_period.start_date:
+                    previous_period = period
+                    break
+            if previous_period:
+                prev_base_values = MetricsService.get_metric_values(team.id, previous_period.id)
             base_metrics = MetricsService.get_base_metrics_for_team(team.id)
             
             for metric in base_metrics:
                 entry = base_values_with_targets.get(metric.key) or {}
                 value = entry.get('value')
                 target = entry.get('target')
+                trend_direction = getattr(metric, 'trend_direction', 'neutral')
                 limit_status = classify_limit_status(
                     value,
                     target,
-                    getattr(metric, 'trend_direction', 'neutral')
+                    trend_direction
                 )
+                subject_label, metric_title = split_metric_name(metric.display_name)
+                limit_progress_pct = compute_limit_progress_pct(value, target)
+                limit_ratio_pct = compute_limit_ratio_pct(value, target)
+                prev_value = prev_base_values.get(metric.key)
                 if target is None:
                     team_data['without_limit_count'] += 1
                 else:
@@ -139,12 +211,23 @@ def index():
                     'value': value,
                     'target': target,
                     'limit_status': limit_status,
+                    'card_color': 'red' if limit_status == 'limit-exceeded' else 'green',
+                    'status_label': status_label(limit_status, trend_direction),
+                    'subject_label': subject_label,
+                    'subject_initial': subject_label[:1].upper(),
+                    'metric_title': metric_title,
                     'achievement_stars': compute_achievement_stars(
                         value,
                         target,
-                        getattr(metric, 'trend_direction', 'neutral')
+                        trend_direction
                     ),
-                    'limit_progress_pct': compute_limit_progress_pct(value, target),
+                    'limit_progress_pct': limit_progress_pct,
+                    'limit_ratio_pct': limit_ratio_pct,
+                    'ring_offset': compute_ring_offset(limit_progress_pct),
+                    'ratio_label': f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit',
+                    'limit_delta_label': format_limit_difference(value, target, trend_direction),
+                    'previous_delta_label': format_previous_delta(value, prev_value, trend_direction),
+                    'period_label': selected_period.label if selected_period else '',
                     'formatted': FormulaService.format_value(value, metric.unit) if value is not None else 'N/A',
                     'target_formatted': FormulaService.format_value(target, metric.unit) if target is not None else None,
                 })

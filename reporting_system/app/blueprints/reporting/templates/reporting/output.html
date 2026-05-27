@@ -221,87 +221,69 @@
                                 <div class="results-subcategory-header">{{ sub_name }}</div>
                                 <div class="results-grid" data-results-grid>
                                     {% for item in items %}
-                                    <div class="metric-card metric-instrument-card {% if item.target is not none %}metric-card-target-{{ item.target_delta_status }}{% endif %} {% if item.achievement_stars %}has-achievement{% endif %}" style="--metric-progress: {{ '%.1f'|format(item.limit_progress_pct) }}%;" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
-                                        {% if item.achievement_stars %}
-                                        <div class="achievement-stars metric-achievement-stars" aria-label="{{ item.achievement_stars }} star achievement">
-                                            {% for _ in range(item.achievement_stars) %}<span aria-hidden="true">★</span>{% endfor %}
+                                    <div class="mcard {{ item.card_color }}" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                        <div class="card-top">
+                                            <p class="card-title">{{ item.metric_title }}</p>
                                         </div>
-                                        {% endif %}
-                                        <div class="metric-card-header">
-                                            <div class="metric-head">
-                                                <div class="metric-name">{{ item.metric.display_name }}</div>
-                                                {% if item.metric.description %}
-                                                <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
-                                                    <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                        <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                        <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                                    </svg>
-                                                </button>
-                                                {% endif %}
-                                            </div>
-                                            <code class="metric-key">{{ item.metric.key }}</code>
+
+                                        <div class="name-row">
+                                            <div class="avatar">{{ item.subject_initial }}</div>
+                                            <span class="name-label">{{ item.subject_label }}</span>
+                                            {% if item.metric.description %}
+                                            <button type="button" class="metric-info-btn" data-metric-info data-desc="{{ item.metric.description|e }}" aria-label="Metric info" title="Info">
+                                                <svg class="results-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M12 16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <path d="M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </button>
+                                            {% endif %}
                                         </div>
-                                        <div class="metric-card-body">
-                                            <div class="metric-card-value-row">
-                                                <div class="metric-card-value {% if item.value is none %}no-data{% endif %}">
-                                                    <div class="metric-gauge" aria-hidden="true">
-                                                        <div class="metric-gauge-inner">
-                                                            <div>{{ item.formatted }}</div>
-                                                            <div class="metric-gauge-unit">{{ item.metric.unit }}</div>
-                                                        </div>
-                                                    </div>
-                                                    {% if item.target is not none and item.target_formatted %}
-                                                        <div class="metric-target-inline">
-                                                            <span>Limit: {{ item.target_formatted }}</span>
-                                                            {% if item.target_diff_pct is not none or item.target_diff is not none %}
-                                                                <span class="metric-target-diff metric-delta metric-delta-{{ item.target_delta_status }}" title="Compared to target">
-                                                                    {% if item.target_diff_pct is not none %}
-                                                                        {{ '%+.1f%%'|format(item.target_diff_pct) }}
-                                                                    {% else %}
-                                                                        {{ '%+.2f'|format(item.target_diff) }}
-                                                                    {% endif %}
-                                                                </span>
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endif %}
-                                                </div>
-                                                {% if item.target is not none %}
-                                                <div class="metric-limit-scale" aria-hidden="true">
-                                                    <div class="metric-limit-scale-fill"></div>
-                                                </div>
+
+                                        <div class="circle-wrap">
+                                            <svg class="metric-ring" viewBox="0 0 164 164" role="img" aria-label="{{ item.metric.display_name }} value {{ item.formatted }}">
+                                                <defs>
+                                                    <filter id="glow-results-{{ item.metric.id }}">
+                                                        <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                                    </filter>
+                                                </defs>
+                                                <circle cx="82" cy="82" r="68" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="13"/>
+                                                <circle cx="82" cy="82" r="68" fill="none" class="ring-progress" stroke-width="13"
+                                                       stroke-linecap="round"
+                                                       stroke-dasharray="427.26"
+                                                       stroke-dashoffset="{{ '%.2f'|format(item.ring_offset) }}"
+                                                       transform="rotate(-90 82 82)"
+                                                       filter="url(#glow-results-{{ item.metric.id }})"/>
+                                                {% if item.card_color == 'red' and item.limit_ratio_pct and item.limit_ratio_pct > 100 %}
+                                                <circle cx="82" cy="82" r="68" fill="none" stroke="rgba(255,255,255,0.24)" stroke-width="13"
+                                                       stroke-linecap="round"
+                                                       stroke-dasharray="427.26"
+                                                       stroke-dashoffset="354"
+                                                       transform="rotate(-90 82 82)"/>
                                                 {% endif %}
-                                                <div class="metric-delta metric-delta-{{ item.delta_status }}" title="Compared to previous period">
-                                                    {% if item.delta_pct is not none and item.delta_pct > 0 %}
-                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                        <path d="M12 5l7 7-1.4 1.4L13 8.8V19h-2V8.8L6.4 13.4 5 12l7-7Z" fill="currentColor"/>
-                                                    </svg>
-                                                    {% elif item.delta_pct is not none and item.delta_pct < 0 %}
-                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                        <path d="M12 19l-7-7 1.4-1.4L11 15.2V5h2v10.2l4.6-4.6L19 12l-7 7Z" fill="currentColor"/>
-                                                    </svg>
-                                                    {% else %}
-                                                    <svg class="results-icon metric-delta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                                        <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                                    </svg>
-                                                    {% endif %}
-                                                    <span class="metric-delta-text">
-                                                        {% if item.delta_pct is not none %}
-                                                            {{ '%+.1f%%'|format(item.delta_pct) }}
-                                                        {% else %}
-                                                            +0.0%
-                                                        {% endif %}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div class="metric-card-meta">
-                                                <span class="results-pill">{{ item.metric.unit }}</span>
-                                                {% if item.goal_status == 'achieved' %}
-                                                    <span class="results-pill">Achieved</span>
-                                                {% elif item.goal_status == 'not_achieved' %}
-                                                    <span class="results-pill">Not achieved</span>
-                                                {% endif %}
-                                            </div>
+                                                <text x="82" y="70" text-anchor="middle" class="ring-value {% if item.metric.unit == 'percent' %}ring-value-percent{% endif %} {% if item.formatted|string|length > 7 %}ring-value-long{% endif %}">{{ item.formatted }}</text>
+                                                <text x="82" y="102" text-anchor="middle" class="ring-ratio">{{ item.ratio_label }}</text>
+                                            </svg>
+                                        </div>
+
+                                        <div class="limit-badge">
+                                            <span class="limit-flag" aria-hidden="true"></span>
+                                            {% if item.target is not none and item.target_formatted %}
+                                            Limit: <strong>{{ item.target_formatted }}</strong>
+                                            {% else %}
+                                            <strong>No limit set</strong>
+                                            {% endif %}
+                                            {% if item.card_color == 'red' and item.limit_delta_label %}
+                                            <span class="over-tag">{{ item.limit_delta_label }}</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <hr class="divider">
+                                        <div class="footer">
+                                            <span class="trend">{{ item.previous_delta_label }}</span>
+                                            <span class="week">{{ item.period_label }}</span>
+                                        </div>
 
                                             <details class="metric-history">
                                                 <summary class="metric-history-btn">Past 3 weeks</summary>
@@ -318,7 +300,6 @@
                                                     {% endif %}
                                                 </div>
                                             </details>
-                                        </div>
                                     </div>
                                     {% endfor %}
                                 </div>
