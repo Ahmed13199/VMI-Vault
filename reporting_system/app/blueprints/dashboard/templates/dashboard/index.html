@@ -103,7 +103,7 @@
                     <svg class="metric-ring" viewBox="0 0 164 164" role="img" aria-label="{{ item.metric.display_name }} value {{ item.formatted }}">
                         <defs>
                             <filter id="glow-dashboard-{{ team_data.team.id }}-{{ item.metric.id }}">
-                                <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                                <feGaussianBlur stdDeviation="1.6" result="blur"/>
                                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
                             </filter>
                         </defs>
