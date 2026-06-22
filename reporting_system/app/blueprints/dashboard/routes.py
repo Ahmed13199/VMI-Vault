@@ -27,6 +27,8 @@ def index():
         selected_period = MetricsService.get_period_by_id(period_id)
     elif periods:
         selected_period = periods[0]
+
+    hide_without_targets = request.args.get('hide_without_targets') == '1'
     
     # Determine which teams to show
     all_teams = []
@@ -310,6 +312,10 @@ def index():
                     'target_lower': target_lower,
                     'target_upper': target_upper,
                 }
+                has_target_value = has_target(target_config)
+                if hide_without_targets and not has_target_value:
+                    continue
+
                 trend_direction = getattr(metric, 'trend_direction', 'neutral')
                 limit_status = classify_limit_status(
                     value,
@@ -320,7 +326,6 @@ def index():
                 limit_progress_pct = compute_limit_progress_pct(value, target_config, trend_direction)
                 limit_ratio_pct = compute_limit_ratio_pct(value, target_config, trend_direction)
                 prev_value = prev_base_values.get(metric.key)
-                has_target_value = has_target(target_config)
                 ratio_label = f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit'
                 if target_type == 'range' and has_target_value:
                     ratio_label = 'In target range' if limit_status == 'within-limit' else 'Outside range'
@@ -388,4 +393,5 @@ def index():
                           selected_period=selected_period,
                           all_teams=all_teams,
                           selected_team_ids=selected_team_ids,
+                          hide_without_targets=hide_without_targets,
                           dashboard_data=dashboard_data)

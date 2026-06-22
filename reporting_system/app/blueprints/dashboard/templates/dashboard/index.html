@@ -8,12 +8,12 @@
     <p class="page-subtitle">KPI Overview</p>
 </div>
 
-<!-- Period Filter -->
+<!-- Dashboard Filters -->
 <div class="filter-bar dashboard-filter-bar">
-    <form method="GET" action="{{ url_for('dashboard.index') }}" class="filter-form">
-        <div class="form-group inline">
+    <form method="GET" action="{{ url_for('dashboard.index') }}" class="filter-form dashboard-filter-form">
+        <div class="dashboard-filter-section dashboard-period-filter">
             <label for="period_id">Reporting Period:</label>
-            <select name="period_id" id="period_id" onchange="this.form.submit()">
+            <select name="period_id" id="period_id">
                 <option value="">-- Select Period --</option>
                 {% for period in periods %}
                 <option value="{{ period.id }}" 
@@ -24,7 +24,7 @@
             </select>
         </div>
         {% if current_user.is_admin() and all_teams %}
-        <div class="form-group inline dashboard-team-filter">
+        <div class="dashboard-filter-section dashboard-team-filter">
             <span class="dashboard-filter-label">Show Teams:</span>
             <div class="dashboard-team-options">
                 {% for team in all_teams %}
@@ -32,14 +32,31 @@
                     <input type="checkbox"
                            name="team_id"
                            value="{{ team.id }}"
-                           {% if team.id in selected_team_ids %}checked{% endif %}
-                           onchange="this.form.submit()">
+                           {% if team.id in selected_team_ids %}checked{% endif %}>
+                    <span class="dashboard-team-check" aria-hidden="true"></span>
                     <span>{{ team.name }}</span>
                 </label>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
+        <div class="dashboard-filter-section dashboard-target-filter">
+            <span class="dashboard-filter-label">Targets:</span>
+            <label class="dashboard-target-toggle">
+                <input type="checkbox"
+                       name="hide_without_targets"
+                       value="1"
+                       {% if hide_without_targets %}checked{% endif %}>
+                <span class="dashboard-toggle-track" aria-hidden="true">
+                    <span class="dashboard-toggle-thumb"></span>
+                </span>
+                <span>Hide metrics without targets</span>
+            </label>
+        </div>
+        <div class="dashboard-filter-actions">
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">Reset</a>
+        </div>
     </form>
 </div>
 
