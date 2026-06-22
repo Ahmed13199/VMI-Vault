@@ -221,7 +221,7 @@
                                 <div class="results-subcategory-header">{{ sub_name }}</div>
                                 <div class="results-grid" data-results-grid>
                                     {% for item in items %}
-                                    <div class="mcard {{ item.card_color }}" data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
+                                    <div class="mcard {{ item.card_color }}" {% if item.card_style %}style="{{ item.card_style }}"{% endif %} data-results-card data-search="{{ (item.metric.display_name ~ ' ' ~ item.metric.key ~ ' ' ~ item.metric.unit ~ ' ' ~ cat ~ ' ' ~ sub_name)|lower }}">
                                         <div class="card-top">
                                             <p class="card-title">{{ item.metric_title }}</p>
                                         </div>

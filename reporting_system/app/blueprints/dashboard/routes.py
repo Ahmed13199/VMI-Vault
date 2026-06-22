@@ -87,6 +87,65 @@ def index():
             return 'within-limit' if v <= t else 'limit-exceeded'
         return 'within-limit' if v <= t else 'limit-exceeded'
 
+    def _mix_hex(start_hex, end_hex, amount):
+        amount = max(0.0, min(float(amount), 1.0))
+        start = start_hex.lstrip('#')
+        end = end_hex.lstrip('#')
+        rgb = []
+        for i in range(0, 6, 2):
+            s = int(start[i:i + 2], 16)
+            e = int(end[i:i + 2], 16)
+            rgb.append(round(s + ((e - s) * amount)))
+        return '#{:02x}{:02x}{:02x}'.format(*rgb)
+
+    def _hex_to_rgb(hex_color):
+        value = hex_color.lstrip('#')
+        return tuple(int(value[i:i + 2], 16) for i in range(0, 6, 2))
+
+    def range_card_presentation(value, config, trend_direction, fallback_status):
+        fallback_color = 'red' if fallback_status in ('limit-exceeded', 'bad') else 'green'
+        if value is None or not has_target(config) or config.get('target_type') != 'range':
+            return fallback_color, ''
+        if trend_direction not in ('higher_is_better', 'lower_is_better'):
+            return fallback_color, ''
+
+        try:
+            v = float(value)
+            lower = float(config.get('target_lower'))
+            upper = float(config.get('target_upper'))
+        except (TypeError, ValueError):
+            return fallback_color, ''
+
+        if abs(upper - lower) < 1e-12:
+            return fallback_color, ''
+
+        if trend_direction == 'lower_is_better':
+            if v < lower:
+                return 'green', ''
+            if v > upper:
+                return 'red', ''
+            severity = (v - lower) / (upper - lower)
+            accent = _mix_hex('#eab308', '#ef4444', severity)
+        else:
+            if v > upper:
+                return 'green', ''
+            if v < lower:
+                return 'red', ''
+            severity = 1.0 - ((v - lower) / (upper - lower))
+            accent = _mix_hex('#eab308', '#ef4444', severity)
+
+        bg_start = _mix_hex('#050a10', accent, 0.16)
+        bg_mid = _mix_hex('#050a10', accent, 0.24)
+        bg_end = _mix_hex('#050a10', accent, 0.32)
+        r, g, b = _hex_to_rgb(accent)
+        card_style = (
+            f'--range-card-bg: linear-gradient(145deg, {bg_start} 0%, {bg_mid} 60%, {bg_end} 100%); '
+            f'--range-accent: {accent}; '
+            f'--range-accent-soft: rgba({r}, {g}, {b}, 0.12); '
+            f'--range-border: rgba({r}, {g}, {b}, 0.30);'
+        )
+        return 'range-scale', card_style
+
     def compute_achievement_stars(value, config, trend_direction):
         threshold = target_threshold_for_progress(config, trend_direction)
         if value is None or threshold is None:
@@ -265,6 +324,12 @@ def index():
                 ratio_label = f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit'
                 if target_type == 'range' and has_target_value:
                     ratio_label = 'In target range' if limit_status == 'within-limit' else 'Outside range'
+                card_color, card_style = range_card_presentation(
+                    value,
+                    target_config,
+                    trend_direction,
+                    limit_status,
+                )
                 if not has_target_value:
                     team_data['without_limit_count'] += 1
                 else:
@@ -282,7 +347,8 @@ def index():
                     'target_upper': target_upper,
                     'has_target': has_target_value,
                     'limit_status': limit_status,
-                    'card_color': 'red' if limit_status == 'limit-exceeded' else 'green',
+                    'card_color': card_color,
+                    'card_style': card_style,
                     'status_label': status_label(limit_status, trend_direction),
                     'subject_label': subject_label,
                     'subject_initial': subject_label[:1].upper(),

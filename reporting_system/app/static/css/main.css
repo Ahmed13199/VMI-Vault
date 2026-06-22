@@ -1281,6 +1281,11 @@ body.app-modal-open {
     border: 1px solid rgba(248, 113, 113, 0.20);
 }
 
+.mcard.range-scale {
+    background: var(--range-card-bg);
+    border: 1px solid var(--range-border);
+}
+
 .mcard::before {
     content: "";
     position: absolute;
@@ -1337,6 +1342,12 @@ body.app-modal-open {
     border: 1px solid rgba(248, 113, 113, 0.26);
 }
 
+.mcard.range-scale .status-pill {
+    background: var(--range-accent-soft);
+    color: var(--range-accent);
+    border: 1px solid var(--range-border);
+}
+
 .mcard .dot {
     width: 6px;
     height: 6px;
@@ -1351,6 +1362,11 @@ body.app-modal-open {
 .mcard.red .dot {
     background: #fca5a5;
     box-shadow: 0 0 5px rgba(248, 113, 113, 0.26);
+}
+
+.mcard.range-scale .dot {
+    background: var(--range-accent);
+    box-shadow: 0 0 5px var(--range-accent-soft);
 }
 
 .mcard .name-row {
@@ -1384,6 +1400,12 @@ body.app-modal-open {
     border: 1px solid rgba(248, 113, 113, 0.24);
 }
 
+.mcard.range-scale .avatar {
+    background: var(--range-accent-soft);
+    color: var(--range-accent);
+    border: 1px solid var(--range-border);
+}
+
 .mcard .name-label {
     font-size: 14px;
     font-weight: 800;
@@ -1409,6 +1431,10 @@ body.app-modal-open {
 
 .mcard.red .ring-progress {
     stroke: #fca5a5;
+}
+
+.mcard.range-scale .ring-progress {
+    stroke: var(--range-accent);
 }
 
 .mcard .ring-value {
@@ -1441,6 +1467,10 @@ body.app-modal-open {
     fill: #fca5a5;
 }
 
+.mcard.range-scale .ring-ratio {
+    fill: var(--range-accent);
+}
+
 .mcard .limit-badge {
     display: flex;
     align-items: center;
@@ -1464,6 +1494,11 @@ body.app-modal-open {
     border: 1px solid rgba(248, 113, 113, 0.16);
 }
 
+.mcard.range-scale .limit-badge {
+    background: var(--range-accent-soft);
+    border: 1px solid var(--range-border);
+}
+
 .mcard .limit-badge strong {
     color: var(--color-white);
     font-weight: 800;
@@ -1485,6 +1520,11 @@ body.app-modal-open {
 .mcard.red .limit-flag {
     background: #fca5a5;
     box-shadow: 0 0 5px rgba(248, 113, 113, 0.18);
+}
+
+.mcard.range-scale .limit-flag {
+    background: var(--range-accent);
+    box-shadow: 0 0 5px var(--range-accent-soft);
 }
 
 .mcard .over-tag {
@@ -1522,6 +1562,10 @@ body.app-modal-open {
 
 .mcard.red .trend {
     color: #fca5a5;
+}
+
+.mcard.range-scale .trend {
+    color: var(--range-accent);
 }
 
 .mcard .week {

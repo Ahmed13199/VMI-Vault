@@ -89,7 +89,7 @@
         <h3>Base Metrics</h3>
         <div class="kpi-cards">
             {% for item in team_data.base_metrics %}
-            <div class="mcard {{ item.card_color }}">
+            <div class="mcard {{ item.card_color }}" {% if item.card_style %}style="{{ item.card_style }}"{% endif %}>
                 <div class="card-top">
                     <p class="card-title">{{ item.metric_title }}</p>
                 </div>
