@@ -263,6 +263,29 @@
         </div>
     </section>
 
+    {% if can_manage_blend_report %}
+    <section class="access-section blend-report-section">
+        <div class="access-section-header">
+            <h2>Blend Report Access</h2>
+            <p>Select one user who can auto-fill data entry from the previous week.</p>
+        </div>
+        <form method="POST" action="{{ url_for('settings.update_blend_report_user') }}" class="blend-report-access-form">
+            <div class="form-group">
+                <label for="blend_user_id">User with Blend Report</label>
+                <select name="blend_user_id" id="blend_user_id">
+                    <option value="">No user selected</option>
+                    {% for user in blend_users %}
+                    <option value="{{ user.id }}" {% if blend_report_user_id and blend_report_user_id|string == user.id|string %}selected{% endif %}>
+                        {{ user.full_name }} ({{ user.username }}){% if user.team %} - {{ user.team.name }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Blend User</button>
+        </form>
+    </section>
+    {% endif %}
+
     <form method="POST" action="{{ url_for('settings.access_control') }}" class="access-form">
         {% for group_name, pages in permission_groups.items() %}
         <section class="access-section">

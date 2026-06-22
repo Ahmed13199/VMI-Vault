@@ -2297,6 +2297,28 @@ body.app-modal-open {
     pointer-events: none;
 }
 
+.blend-report-filter-action {
+    align-self: flex-end;
+}
+
+.blend-report-button {
+    min-height: 42px;
+    font-weight: 800;
+}
+
+.blend-report-button:not(:disabled) {
+    border-color: rgba(20, 184, 166, 0.36);
+    background: rgba(20, 184, 166, 0.12);
+    color: #7dd3fc;
+}
+
+.blend-report-button:not(:disabled):hover,
+.blend-report-button.blend-report-filled {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.26), rgba(20, 184, 166, 0.22));
+    border-color: rgba(56, 189, 248, 0.48);
+    color: var(--color-white);
+}
+
 .number-entry-field-target::after {
     content: "T";
     color: var(--color-primary-light);
@@ -4455,6 +4477,23 @@ body.app-modal-open {
     overflow: hidden;
 }
 
+.blend-report-section {
+    margin-bottom: var(--spacing-xl);
+    border-color: rgba(20, 184, 166, 0.24);
+}
+
+.blend-report-access-form {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: var(--spacing-md);
+    align-items: end;
+    padding: var(--spacing-xl);
+}
+
+.blend-report-access-form select {
+    width: 100%;
+}
+
 .access-section-header {
     display: flex;
     align-items: center;
@@ -4644,7 +4683,8 @@ body.app-modal-open {
     .settings-user-grid,
     .guidelines-uploader-shell,
     .sales-inline-grid,
-    .sales-resource-grid {
+    .sales-resource-grid,
+    .blend-report-access-form {
         grid-template-columns: 1fr;
     }
 

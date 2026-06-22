@@ -3,6 +3,7 @@ Database models package.
 Import all models here to ensure they are registered with SQLAlchemy.
 """
 from .user import User
+from .app_setting import AppSetting
 from .access_permission import AccessPermission
 from .team import Team
 from .metric import MetricCategory, MetricSubCategory, MetricDefinition, MetricValue, ReportingPeriod
@@ -21,6 +22,7 @@ from .sales_team import (
 
 __all__ = [
     'User',
+    'AppSetting',
     'AccessPermission',
     'Team',
     'MetricCategory',

@@ -16,6 +16,11 @@ from ...models.metric import MetricDefinition
 from ...models.graph_settings import GraphLayerSettings
 from ...models.team import Team
 from ...models.user import User
+from ...models.app_setting import AppSetting
+
+
+BLEND_REPORT_SETTING_KEY = 'blend_report_user_id'
+BLEND_REPORT_MANAGER_USERNAME = 'ahmedtamer'
 
 
 def _role_for_team_and_rank(team, rank):
@@ -36,6 +41,10 @@ def _can_manage_target_user(actor, target):
     if target.effective_rank() == 'admin':
         return False
     return True
+
+
+def _can_manage_blend_report(actor):
+    return (actor.username or '').strip().lower() == BLEND_REPORT_MANAGER_USERNAME
 
 
 @settings_bp.route('/')
@@ -60,6 +69,16 @@ def index():
     users = []
     users_total = 0
     users_pages = 0
+    blend_users = []
+    blend_report_user_id = AppSetting.get_value(BLEND_REPORT_SETTING_KEY)
+    can_manage_blend_report = _can_manage_blend_report(current_user)
+
+    if can_manage_blend_report and current_user.can_access_page('permissions'):
+        blend_users = (
+            User.query.options(joinedload(User.team))
+            .order_by(User.first_name.asc(), User.last_name.asc(), User.username.asc())
+            .all()
+        )
 
     if current_user.can_access_page('user_management'):
         users_query = User.query.options(joinedload(User.team))
@@ -116,7 +135,10 @@ def index():
                           rank_filter=rank_filter,
                           user_page=user_page,
                           users_pages=users_pages,
-                          users_total=users_total)
+                          users_total=users_total,
+                          blend_users=blend_users,
+                          blend_report_user_id=blend_report_user_id,
+                          can_manage_blend_report=can_manage_blend_report)
 
 
 @settings_bp.route('/categories', methods=['GET'])
@@ -655,6 +677,30 @@ def access_control():
     if request.method == 'POST':
         AccessService.save_from_form(request.form)
         flash('Access permissions updated successfully.', 'success')
+    return redirect(url_for('settings.index', tab='permissions'))
+
+
+@settings_bp.route('/blend-report-user', methods=['POST'])
+@login_required
+@require_page_permission('permissions', 'edit')
+def update_blend_report_user():
+    if not _can_manage_blend_report(current_user):
+        flash('Only ahmedtamer can manage Blend Report access.', 'error')
+        return redirect(url_for('settings.index', tab='permissions'))
+
+    user_id = request.form.get('blend_user_id', type=int)
+    if not user_id:
+        AppSetting.set_value(BLEND_REPORT_SETTING_KEY, None)
+        flash('Blend Report access cleared.', 'success')
+        return redirect(url_for('settings.index', tab='permissions'))
+
+    user = User.query.get(user_id)
+    if not user:
+        flash('Selected user was not found.', 'error')
+        return redirect(url_for('settings.index', tab='permissions'))
+
+    AppSetting.set_value(BLEND_REPORT_SETTING_KEY, user.id)
+    flash(f'Blend Report access granted to {user.full_name}.', 'success')
     return redirect(url_for('settings.index', tab='permissions'))
 
 

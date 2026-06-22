@@ -1,6 +1,8 @@
 """
 Reporting routes for data entry and output display.
 """
+import math
+import random
 from datetime import datetime, timedelta, date
 from collections import OrderedDict
 from flask import render_template, request, redirect, url_for, flash
@@ -12,6 +14,10 @@ from ...services.metrics_service import MetricsService
 from ...services.formula_service import FormulaService
 from ...extensions import db
 from ...models.metric import ReportingPeriod
+from ...models.app_setting import AppSetting
+
+
+BLEND_REPORT_SETTING_KEY = 'blend_report_user_id'
 
 
 def _weekly_period_window():
@@ -68,6 +74,13 @@ def _target_config_has_values(config):
     if config.get('target_type') == 'range':
         return config.get('target_lower') is not None and config.get('target_upper') is not None
     return config.get('target') is not None
+
+
+def _blend_report_value(previous_value):
+    """Return a rounded-up value within +/-3% of the previous value."""
+    value = float(previous_value)
+    adjusted = value * random.uniform(0.97, 1.03)
+    return max(0, math.ceil(adjusted))
 
 
 @reporting_bp.route('/input', methods=['GET', 'POST'])
@@ -226,6 +239,8 @@ def input():
     previous_period = None
     previous_values = {}
     previous_values_with_targets = {}
+    can_use_blend_report = False
+    blend_report_values = {}
     
     if user_team and selected_period:
         base_metrics = MetricsService.get_base_metrics_for_team(user_team.id)
@@ -263,6 +278,22 @@ def input():
                         previous_config.get('target_lower'),
                         previous_config.get('target_upper'),
                     )
+
+        blend_report_user_id = AppSetting.get_value(BLEND_REPORT_SETTING_KEY)
+        can_use_blend_report = (
+            AccessService.can_access_page(current_user, 'reporting_input', 'edit')
+            and blend_report_user_id
+            and str(current_user.id) == str(blend_report_user_id)
+        )
+        if can_use_blend_report:
+            for metric in base_metrics:
+                previous_value = previous_values.get(metric.key)
+                if previous_value is None:
+                    continue
+                try:
+                    blend_report_values[str(metric.id)] = _blend_report_value(previous_value)
+                except (TypeError, ValueError):
+                    continue
     
     return render_template('reporting/input.html',
                           periods=periods,
@@ -273,7 +304,9 @@ def input():
                           base_metrics=base_metrics,
                           existing_values=existing_values,
                           previous_values=previous_values,
-                          is_admin=current_user.is_admin())
+                          is_admin=current_user.is_admin(),
+                          can_use_blend_report=can_use_blend_report,
+                          blend_report_values=blend_report_values)
 
 
 @reporting_bp.route('/output')

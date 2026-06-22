@@ -38,6 +38,17 @@
                 {% endfor %}
             </select>
         </div>
+
+        {% if can_use_blend_report %}
+        <div class="form-group inline blend-report-filter-action">
+            <button type="button"
+                    class="btn btn-secondary blend-report-button"
+                    data-blend-report
+                    {% if not blend_report_values %}disabled title="No previous week values are available to fill."{% endif %}>
+                Report
+            </button>
+        </div>
+        {% endif %}
     </form>
 </div>
 
@@ -254,5 +265,26 @@ document.querySelectorAll('[data-target-entry]').forEach(function(entry) {
     });
     syncTargetPanels();
 });
+
+const blendReportValues = {{ blend_report_values | default({}) | tojson }};
+const blendReportButton = document.querySelector('[data-blend-report]');
+if (blendReportButton) {
+    blendReportButton.addEventListener('click', function() {
+        let filledCount = 0;
+        Object.entries(blendReportValues).forEach(function([metricId, value]) {
+            const input = document.querySelector('input[name="metric_' + metricId + '"]');
+            if (!input || value === null || value === undefined || value === '') {
+                return;
+            }
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            filledCount += 1;
+        });
+
+        blendReportButton.textContent = filledCount ? 'Report filled (' + filledCount + ')' : 'No previous values';
+        blendReportButton.classList.toggle('blend-report-filled', filledCount > 0);
+    });
+}
 </script>
 {% endblock %}
