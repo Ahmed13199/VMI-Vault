@@ -42,6 +42,34 @@ def _weekly_period_window():
             .all())
 
 
+def _parse_optional_float(raw_value):
+    raw_value = (raw_value or '').strip()
+    if not raw_value:
+        return None
+    return float(raw_value)
+
+
+def _target_config_from_entry(entry):
+    entry = entry or {}
+    target_type = entry.get('target_type') or 'single'
+    if target_type not in ('single', 'range'):
+        target_type = 'single'
+    return {
+        'target_type': target_type,
+        'target': entry.get('target'),
+        'target_lower': entry.get('target_lower'),
+        'target_upper': entry.get('target_upper'),
+    }
+
+
+def _target_config_has_values(config):
+    if not config:
+        return False
+    if config.get('target_type') == 'range':
+        return config.get('target_lower') is not None and config.get('target_upper') is not None
+    return config.get('target') is not None
+
+
 @reporting_bp.route('/input', methods=['GET', 'POST'])
 @login_required
 @require_page_permission('reporting_input')
@@ -135,16 +163,52 @@ def input():
                 saved_count = 0
                 for metric in base_metrics:
                     value_str = request.form.get(f'metric_{metric.id}', '').strip()
-                    target_str = request.form.get(f'target_{metric.id}', '').strip()
                     if value_str:
                         try:
                             value = float(value_str)
-                            target = None
-                            if target_str:
-                                target = float(target_str)
-                            elif previous_values_with_targets.get(metric.key, {}).get('target') is not None:
-                                target = previous_values_with_targets[metric.key]['target']
-                            MetricsService.save_metric_value_with_target(metric.id, team_id, period_id, value, target)
+                            target_type = request.form.get(f'target_type_{metric.id}', 'single')
+                            if target_type not in ('single', 'range'):
+                                target_type = 'single'
+
+                            target = _parse_optional_float(request.form.get(f'target_{metric.id}'))
+                            target_lower = _parse_optional_float(request.form.get(f'target_lower_{metric.id}'))
+                            target_upper = _parse_optional_float(request.form.get(f'target_upper_{metric.id}'))
+
+                            target_config = {
+                                'target_type': target_type,
+                                'target': target if target_type == 'single' else None,
+                                'target_lower': target_lower if target_type == 'range' else None,
+                                'target_upper': target_upper if target_type == 'range' else None,
+                            }
+
+                            if target_type == 'range':
+                                has_lower = target_lower is not None
+                                has_upper = target_upper is not None
+                                if has_lower != has_upper:
+                                    flash(f'Range target for {metric.display_name} needs both lower and upper values.', 'error')
+                                    continue
+                                if has_lower and target_lower > target_upper:
+                                    flash(f'Range target for {metric.display_name} must have lower target less than or equal to upper target.', 'error')
+                                    continue
+
+                            previous_config = _target_config_from_entry(previous_values_with_targets.get(metric.key))
+                            if (
+                                not _target_config_has_values(target_config)
+                                and _target_config_has_values(previous_config)
+                                and target_config.get('target_type') == previous_config.get('target_type')
+                            ):
+                                target_config = previous_config
+
+                            MetricsService.save_metric_value_with_target(
+                                metric.id,
+                                team_id,
+                                period_id,
+                                value,
+                                target_config.get('target'),
+                                target_config.get('target_type', 'single'),
+                                target_config.get('target_lower'),
+                                target_config.get('target_upper'),
+                            )
                             saved_count += 1
                         except ValueError:
                             flash(f'Invalid value for {metric.display_name}.', 'error')
@@ -173,19 +237,20 @@ def input():
 
         for metric in base_metrics:
             current_entry = existing_values.get(metric.key)
-            previous_target = previous_values_with_targets.get(metric.key, {}).get('target')
-            if previous_target is None:
+            previous_config = _target_config_from_entry(previous_values_with_targets.get(metric.key))
+            if not _target_config_has_values(previous_config):
                 continue
 
             if current_entry is None:
                 existing_values[metric.key] = {
                     'value': '',
-                    'target': previous_target,
+                    **previous_config,
                 }
                 continue
 
-            if current_entry.get('target') is None:
-                current_entry['target'] = previous_target
+            current_config = _target_config_from_entry(current_entry)
+            if not _target_config_has_values(current_config):
+                current_entry.update(previous_config)
                 current_value = current_entry.get('value')
                 if current_value is not None:
                     MetricsService.save_metric_value_with_target(
@@ -193,7 +258,10 @@ def input():
                         user_team.id,
                         selected_period.id,
                         current_value,
-                        previous_target,
+                        previous_config.get('target'),
+                        previous_config.get('target_type', 'single'),
+                        previous_config.get('target_lower'),
+                        previous_config.get('target_upper'),
                     )
     
     return render_template('reporting/input.html',
@@ -307,26 +375,68 @@ def output():
                 return 'good' if delta_pct < 0 else 'bad'
             return 'neutral'
 
-        def compute_goal_status(value, target, trend_direction):
-            if value is None or target is None:
+        def target_config(target_type, target, target_lower, target_upper):
+            return {
+                'target_type': target_type if target_type in ('single', 'range') else 'single',
+                'target': target,
+                'target_lower': target_lower,
+                'target_upper': target_upper,
+            }
+
+        def has_target(config):
+            return _target_config_has_values(config)
+
+        def target_threshold_for_progress(config, trend_direction):
+            if not has_target(config):
                 return None
+            if config.get('target_type') == 'range':
+                if trend_direction == 'higher_is_better':
+                    return config.get('target_lower')
+                return config.get('target_upper')
+            return config.get('target')
+
+        def classify_target_delta(value, config, trend_direction):
+            if value is None or not has_target(config):
+                return 'neutral'
             try:
                 v = float(value)
-                t = float(target)
             except (TypeError, ValueError):
-                return None
-            if trend_direction == 'higher_is_better':
-                return 'achieved' if v >= t else 'not_achieved'
-            if trend_direction == 'lower_is_better':
-                return 'achieved' if v <= t else 'not_achieved'
-            return None
+                return 'neutral'
 
-        def compute_target_delta(value, target):
-            if value is None or target is None:
+            if config.get('target_type') == 'range':
+                lower = float(config.get('target_lower'))
+                upper = float(config.get('target_upper'))
+                if lower <= v <= upper:
+                    return 'good'
+                if trend_direction == 'higher_is_better':
+                    return 'good' if v > upper else 'bad'
+                if trend_direction == 'lower_is_better':
+                    return 'good' if v < lower else 'bad'
+                return 'bad'
+
+            t = config.get('target')
+            if t is None:
+                return 'neutral'
+            t = float(t)
+            if trend_direction == 'higher_is_better':
+                return 'good' if v >= t else 'bad'
+            if trend_direction == 'lower_is_better':
+                return 'good' if v <= t else 'bad'
+            return 'good' if v <= t else 'bad'
+
+        def compute_goal_status(value, config, trend_direction):
+            target_status = classify_target_delta(value, config, trend_direction)
+            if target_status == 'neutral':
+                return None
+            return 'achieved' if target_status == 'good' else 'not_achieved'
+
+        def compute_target_delta(value, config, trend_direction):
+            threshold = target_threshold_for_progress(config, trend_direction)
+            if value is None or threshold is None:
                 return None, None
             try:
                 v = float(value)
-                t = float(target)
+                t = float(threshold)
             except (TypeError, ValueError):
                 return None, None
             diff = v - t
@@ -335,30 +445,13 @@ def output():
                 pct = (diff / t) * 100.0
             return diff, pct
 
-        def classify_target_delta(value, target, trend_direction):
-            if value is None or target is None:
-                return 'neutral'
-            try:
-                v = float(value)
-                t = float(target)
-            except (TypeError, ValueError):
-                return 'neutral'
-            if abs(v - t) < 1e-12:
-                if trend_direction in ('higher_is_better', 'lower_is_better'):
-                    return 'good'
-                return 'neutral'
-            if trend_direction == 'higher_is_better':
-                return 'good' if v >= t else 'bad'
-            if trend_direction == 'lower_is_better':
-                return 'good' if v <= t else 'bad'
-            return 'good' if v <= t else 'bad'
-
-        def compute_achievement_stars(value, target, trend_direction):
-            if value is None or target is None:
+        def compute_achievement_stars(value, config, trend_direction):
+            threshold = target_threshold_for_progress(config, trend_direction)
+            if value is None or threshold is None:
                 return 0
             try:
                 v = float(value)
-                t = float(target)
+                t = float(threshold)
             except (TypeError, ValueError):
                 return 0
 
@@ -376,29 +469,40 @@ def output():
                 return 2
             return 1
 
-        def compute_limit_progress_pct(value, target):
-            if value is None or target is None:
+        def compute_limit_progress_pct(value, config, trend_direction):
+            threshold = target_threshold_for_progress(config, trend_direction)
+            if value is None or threshold is None:
                 return 0
             try:
                 v = abs(float(value))
-                t = abs(float(target))
+                t = abs(float(threshold))
             except (TypeError, ValueError):
                 return 0
             if t <= 1e-12:
                 return 100 if v > 0 else 0
             return max(0, min((v / t) * 100.0, 100))
 
-        def compute_limit_ratio_pct(value, target):
-            if value is None or target is None:
+        def compute_limit_ratio_pct(value, config, trend_direction):
+            threshold = target_threshold_for_progress(config, trend_direction)
+            if value is None or threshold is None:
                 return None
             try:
                 v = abs(float(value))
-                t = abs(float(target))
+                t = abs(float(threshold))
             except (TypeError, ValueError):
                 return None
             if t <= 1e-12:
                 return None
             return (v / t) * 100.0
+
+        def format_target_label(config, unit):
+            if not has_target(config):
+                return None
+            if config.get('target_type') == 'range':
+                lower = FormulaService.format_value(config.get('target_lower'), unit)
+                upper = FormulaService.format_value(config.get('target_upper'), unit)
+                return f'{lower} - {upper}'
+            return FormulaService.format_value(config.get('target'), unit)
 
         def compute_ring_offset(progress_pct):
             circumference = 427.26
@@ -410,15 +514,32 @@ def output():
             title = parts[1] if len(parts) > 1 else display_name
             return subject, title
 
-        def format_limit_difference(value, target, trend_direction):
-            if value is None or target is None:
+        def format_limit_difference(value, config, trend_direction):
+            if value is None or not has_target(config):
                 return None
             try:
-                diff = float(value) - float(target)
+                v = float(value)
             except (TypeError, ValueError):
                 return None
-            if abs(diff) < 1e-12:
-                return None
+
+            if config.get('target_type') == 'range':
+                lower = float(config.get('target_lower'))
+                upper = float(config.get('target_upper'))
+                if lower <= v <= upper:
+                    return None
+                if trend_direction == 'higher_is_better' and v > upper:
+                    return None
+                if trend_direction == 'lower_is_better' and v < lower:
+                    return None
+                if v < lower:
+                    diff = v - lower
+                else:
+                    diff = v - upper
+            else:
+                diff = v - float(config.get('target'))
+                if abs(diff) < 1e-12:
+                    return None
+
             formatted = FormulaService.format_value(abs(diff), 'number')
             if trend_direction == 'higher_is_better':
                 return f'+{formatted} above' if diff > 0 else f'-{formatted} under'
@@ -450,14 +571,22 @@ def output():
             entry = base_values_with_targets.get(metric.key) or {}
             value = entry.get('value')
             target = entry.get('target')
+            target_type = entry.get('target_type') or 'single'
+            target_lower = entry.get('target_lower')
+            target_upper = entry.get('target_upper')
+            target_cfg = target_config(target_type, target, target_lower, target_upper)
             prev_value = prev_base_values.get(metric.key)
             trend_direction = getattr(metric, 'trend_direction', 'neutral')
             delta_pct = compute_delta(value, prev_value)
-            target_diff, target_diff_pct = compute_target_delta(value, target)
-            target_delta_status = classify_target_delta(value, target, trend_direction)
-            limit_progress_pct = compute_limit_progress_pct(value, target)
-            limit_ratio_pct = compute_limit_ratio_pct(value, target)
+            target_diff, target_diff_pct = compute_target_delta(value, target_cfg, trend_direction)
+            target_delta_status = classify_target_delta(value, target_cfg, trend_direction)
+            limit_progress_pct = compute_limit_progress_pct(value, target_cfg, trend_direction)
+            limit_ratio_pct = compute_limit_ratio_pct(value, target_cfg, trend_direction)
             subject_label, metric_title = split_metric_name(metric.display_name)
+            has_target_value = has_target(target_cfg)
+            ratio_label = f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit'
+            if target_type == 'range' and has_target_value:
+                ratio_label = 'In target range' if target_delta_status == 'good' else 'Outside range'
 
             history = []
             for idx, p in enumerate(history_periods):
@@ -472,8 +601,12 @@ def output():
                 'metric': metric,
                 'value': value,
                 'target': target,
-                'goal_status': compute_goal_status(value, target, getattr(metric, 'trend_direction', 'neutral')),
-                'target_formatted': FormulaService.format_value(target, metric.unit) if target is not None else None,
+                'target_type': target_type,
+                'target_lower': target_lower,
+                'target_upper': target_upper,
+                'has_target': has_target_value,
+                'goal_status': compute_goal_status(value, target_cfg, getattr(metric, 'trend_direction', 'neutral')),
+                'target_formatted': format_target_label(target_cfg, metric.unit),
                 'target_diff': target_diff,
                 'target_diff_pct': target_diff_pct,
                 'target_delta_status': target_delta_status,
@@ -482,12 +615,12 @@ def output():
                 'subject_label': subject_label,
                 'subject_initial': subject_label[:1].upper(),
                 'metric_title': metric_title,
-                'achievement_stars': compute_achievement_stars(value, target, trend_direction),
+                'achievement_stars': compute_achievement_stars(value, target_cfg, trend_direction),
                 'limit_progress_pct': limit_progress_pct,
                 'limit_ratio_pct': limit_ratio_pct,
                 'ring_offset': compute_ring_offset(limit_progress_pct),
-                'ratio_label': f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit',
-                'limit_delta_label': format_limit_difference(value, target, trend_direction),
+                'ratio_label': ratio_label,
+                'limit_delta_label': format_limit_difference(value, target_cfg, trend_direction),
                 'previous_delta_label': format_previous_delta(value, prev_value),
                 'period_label': selected_period.label if selected_period else '',
                 'prev_value': prev_value,

@@ -45,26 +45,55 @@ def index():
         teams = [current_user.team]
         selected_team_ids = [current_user.team.id]
 
-    def classify_limit_status(value, target, trend_direction):
-        if value is None or target is None:
+    def has_target(config):
+        if not config:
+            return False
+        if config.get('target_type') == 'range':
+            return config.get('target_lower') is not None and config.get('target_upper') is not None
+        return config.get('target') is not None
+
+    def target_threshold_for_progress(config, trend_direction):
+        if not has_target(config):
+            return None
+        if config.get('target_type') == 'range':
+            if trend_direction == 'higher_is_better':
+                return config.get('target_lower')
+            return config.get('target_upper')
+        return config.get('target')
+
+    def classify_limit_status(value, config, trend_direction):
+        if value is None or not has_target(config):
             return 'no-limit'
         try:
             v = float(value)
-            t = float(target)
         except (TypeError, ValueError):
             return 'no-limit'
+
+        if config.get('target_type') == 'range':
+            lower = float(config.get('target_lower'))
+            upper = float(config.get('target_upper'))
+            if lower <= v <= upper:
+                return 'within-limit'
+            if trend_direction == 'higher_is_better':
+                return 'within-limit' if v > upper else 'limit-exceeded'
+            if trend_direction == 'lower_is_better':
+                return 'within-limit' if v < lower else 'limit-exceeded'
+            return 'limit-exceeded'
+
+        t = float(config.get('target'))
         if trend_direction == 'higher_is_better':
             return 'within-limit' if v >= t else 'limit-exceeded'
         if trend_direction == 'lower_is_better':
             return 'within-limit' if v <= t else 'limit-exceeded'
         return 'within-limit' if v <= t else 'limit-exceeded'
 
-    def compute_achievement_stars(value, target, trend_direction):
-        if value is None or target is None:
+    def compute_achievement_stars(value, config, trend_direction):
+        threshold = target_threshold_for_progress(config, trend_direction)
+        if value is None or threshold is None:
             return 0
         try:
             v = float(value)
-            t = float(target)
+            t = float(threshold)
         except (TypeError, ValueError):
             return 0
 
@@ -82,24 +111,26 @@ def index():
             return 2
         return 1
 
-    def compute_limit_progress_pct(value, target):
-        if value is None or target is None:
+    def compute_limit_progress_pct(value, config, trend_direction):
+        threshold = target_threshold_for_progress(config, trend_direction)
+        if value is None or threshold is None:
             return 0
         try:
             v = abs(float(value))
-            t = abs(float(target))
+            t = abs(float(threshold))
         except (TypeError, ValueError):
             return 0
         if t <= 1e-12:
             return 100 if v > 0 else 0
         return max(0, min((v / t) * 100.0, 100))
 
-    def compute_limit_ratio_pct(value, target):
-        if value is None or target is None:
+    def compute_limit_ratio_pct(value, config, trend_direction):
+        threshold = target_threshold_for_progress(config, trend_direction)
+        if value is None or threshold is None:
             return None
         try:
             v = abs(float(value))
-            t = abs(float(target))
+            t = abs(float(threshold))
         except (TypeError, ValueError):
             return None
         if t <= 1e-12:
@@ -116,15 +147,38 @@ def index():
         title = parts[1] if len(parts) > 1 else display_name
         return subject, title
 
-    def format_limit_difference(value, target, trend_direction):
-        if value is None or target is None:
+    def format_target_label(config, unit):
+        if not has_target(config):
+            return None
+        if config.get('target_type') == 'range':
+            lower = FormulaService.format_value(config.get('target_lower'), unit)
+            upper = FormulaService.format_value(config.get('target_upper'), unit)
+            return f'{lower} - {upper}'
+        return FormulaService.format_value(config.get('target'), unit)
+
+    def format_limit_difference(value, config, trend_direction):
+        if value is None or not has_target(config):
             return None
         try:
-            diff = float(value) - float(target)
+            v = float(value)
         except (TypeError, ValueError):
             return None
-        if abs(diff) < 1e-12:
-            return None
+
+        if config.get('target_type') == 'range':
+            lower = float(config.get('target_lower'))
+            upper = float(config.get('target_upper'))
+            if lower <= v <= upper:
+                return None
+            if trend_direction == 'higher_is_better' and v > upper:
+                return None
+            if trend_direction == 'lower_is_better' and v < lower:
+                return None
+            diff = v - lower if v < lower else v - upper
+        else:
+            diff = v - float(config.get('target'))
+            if abs(diff) < 1e-12:
+                return None
+
         formatted = FormulaService.format_value(abs(diff), 'number')
         if trend_direction == 'higher_is_better':
             return f'+{formatted} above' if diff > 0 else f'-{formatted} under'
@@ -188,17 +242,30 @@ def index():
                 entry = base_values_with_targets.get(metric.key) or {}
                 value = entry.get('value')
                 target = entry.get('target')
+                target_type = entry.get('target_type') or 'single'
+                target_lower = entry.get('target_lower')
+                target_upper = entry.get('target_upper')
+                target_config = {
+                    'target_type': target_type if target_type in ('single', 'range') else 'single',
+                    'target': target,
+                    'target_lower': target_lower,
+                    'target_upper': target_upper,
+                }
                 trend_direction = getattr(metric, 'trend_direction', 'neutral')
                 limit_status = classify_limit_status(
                     value,
-                    target,
+                    target_config,
                     trend_direction
                 )
                 subject_label, metric_title = split_metric_name(metric.display_name)
-                limit_progress_pct = compute_limit_progress_pct(value, target)
-                limit_ratio_pct = compute_limit_ratio_pct(value, target)
+                limit_progress_pct = compute_limit_progress_pct(value, target_config, trend_direction)
+                limit_ratio_pct = compute_limit_ratio_pct(value, target_config, trend_direction)
                 prev_value = prev_base_values.get(metric.key)
-                if target is None:
+                has_target_value = has_target(target_config)
+                ratio_label = f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit'
+                if target_type == 'range' and has_target_value:
+                    ratio_label = 'In target range' if limit_status == 'within-limit' else 'Outside range'
+                if not has_target_value:
                     team_data['without_limit_count'] += 1
                 else:
                     team_data['metrics_with_limits_count'] += 1
@@ -210,6 +277,10 @@ def index():
                     'metric': metric,
                     'value': value,
                     'target': target,
+                    'target_type': target_type,
+                    'target_lower': target_lower,
+                    'target_upper': target_upper,
+                    'has_target': has_target_value,
                     'limit_status': limit_status,
                     'card_color': 'red' if limit_status == 'limit-exceeded' else 'green',
                     'status_label': status_label(limit_status, trend_direction),
@@ -218,18 +289,18 @@ def index():
                     'metric_title': metric_title,
                     'achievement_stars': compute_achievement_stars(
                         value,
-                        target,
+                        target_config,
                         trend_direction
                     ),
                     'limit_progress_pct': limit_progress_pct,
                     'limit_ratio_pct': limit_ratio_pct,
                     'ring_offset': compute_ring_offset(limit_progress_pct),
-                    'ratio_label': f'{limit_ratio_pct:.0f}% of limit' if limit_ratio_pct is not None else 'No limit',
-                    'limit_delta_label': format_limit_difference(value, target, trend_direction),
+                    'ratio_label': ratio_label,
+                    'limit_delta_label': format_limit_difference(value, target_config, trend_direction),
                     'previous_delta_label': format_previous_delta(value, prev_value, trend_direction),
                     'period_label': selected_period.label if selected_period else '',
                     'formatted': FormulaService.format_value(value, metric.unit) if value is not None else 'N/A',
-                    'target_formatted': FormulaService.format_value(target, metric.unit) if target is not None else None,
+                    'target_formatted': format_target_label(target_config, metric.unit),
                 })
             
             # Calculate derived metrics

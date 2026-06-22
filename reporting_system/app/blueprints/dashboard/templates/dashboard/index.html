@@ -128,7 +128,7 @@
 
                 <div class="limit-badge">
                     <span class="limit-flag" aria-hidden="true"></span>
-                    {% if item.target is not none %}
+                    {% if item.has_target %}
                     Limit: <strong>{{ item.target_formatted }}</strong>
                     {% else %}
                     <strong>No limit set</strong>

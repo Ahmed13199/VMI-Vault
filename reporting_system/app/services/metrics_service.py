@@ -543,11 +543,23 @@ class MetricsService:
         return metric_value
 
     @staticmethod
-    def save_metric_value_with_target(metric_id, team_id, reporting_period_id, value, target=None):
+    def save_metric_value_with_target(
+        metric_id,
+        team_id,
+        reporting_period_id,
+        value,
+        target=None,
+        target_type='single',
+        target_lower=None,
+        target_upper=None,
+    ):
         """Save or update a metric value (and optional target)."""
         metric_value = MetricValue.get_or_create(metric_id, team_id, reporting_period_id)
         metric_value.value = value
-        metric_value.target = target
+        metric_value.target_type = target_type if target_type in ('single', 'range') else 'single'
+        metric_value.target = target if metric_value.target_type == 'single' else None
+        metric_value.target_lower = target_lower if metric_value.target_type == 'range' else None
+        metric_value.target_upper = target_upper if metric_value.target_type == 'range' else None
         db.session.add(metric_value)
         db.session.commit()
         return metric_value

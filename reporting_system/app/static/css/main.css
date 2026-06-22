@@ -2023,24 +2023,32 @@ body.app-modal-open {
 }
 
 .data-entry-form .input-table {
-    min-width: 820px;
+    min-width: 1000px;
 }
 
 .input-table th:nth-child(1),
 .input-table td:nth-child(1) {
-    width: 34%;
+    width: 28%;
 }
 
 .input-table th:nth-child(2),
 .input-table td:nth-child(2) {
-    width: 10%;
+    width: 8%;
 }
 
 .input-table th:nth-child(3),
-.input-table td:nth-child(3),
+.input-table td:nth-child(3) {
+    width: 16%;
+}
+
+.input-table th:nth-child(4),
+.input-table td:nth-child(4) {
+    width: 16%;
+}
+
 .input-table th:nth-child(5),
 .input-table td:nth-child(5) {
-    width: 18%;
+    width: 32%;
 }
 
 .number-entry-field {
@@ -2089,6 +2097,108 @@ body.app-modal-open {
 .number-entry-field-target::after {
     content: "T";
     color: var(--color-primary-light);
+}
+
+.target-entry-control {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+    max-width: 252px;
+}
+
+.target-mode-toggle {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.target-mode-option {
+    position: relative;
+    display: inline-flex;
+    width: 28px;
+    height: 30px;
+    cursor: pointer;
+}
+
+.target-mode-option input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    cursor: pointer;
+}
+
+.target-mode-icon {
+    width: 28px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(168, 181, 196, 0.24);
+    border-radius: 8px;
+    color: var(--color-text-muted);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--color-header);
+    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.target-mode-icon svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.target-mode-option input:checked + .target-mode-icon {
+    color: var(--color-primary-light);
+    border-color: rgba(242, 111, 42, 0.58);
+    background-color: rgba(242, 111, 42, 0.10);
+    box-shadow: 0 0 0 3px rgba(242, 111, 42, 0.12);
+}
+
+.target-mode-option input:focus-visible + .target-mode-icon {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.target-panel[hidden] {
+    display: none;
+}
+
+.target-panel {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.target-panel-range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+}
+
+.target-entry-control .number-entry-field {
+    min-width: 0;
+    max-width: none;
+}
+
+.target-entry-control .input-value {
+    min-height: 38px;
+    padding-left: 9px;
+    font-size: 14px;
+}
+
+.target-range-field .input-value {
+    padding-right: 9px;
+}
+
+.target-range-field::after {
+    content: "";
 }
 
 .input-table .input-value::placeholder {

@@ -184,9 +184,9 @@
                                     <td class="value-cell {% if item.value is none %}no-data{% endif %}">
                                         {{ item.formatted }}
                                     </td>
-                                    <td class="value-cell {% if item.target is none %}no-data{% endif %}">
-                                        {% if item.target is not none %}
-                                            {{ item.target }}
+                                    <td class="value-cell {% if not item.has_target %}no-data{% endif %}">
+                                        {% if item.has_target %}
+                                            {{ item.target_formatted }}
                                         {% else %}
                                             N/A
                                         {% endif %}
@@ -269,7 +269,7 @@
 
                                         <div class="limit-badge">
                                             <span class="limit-flag" aria-hidden="true"></span>
-                                            {% if item.target is not none and item.target_formatted %}
+                                            {% if item.has_target and item.target_formatted %}
                                             Limit: <strong>{{ item.target_formatted }}</strong>
                                             {% else %}
                                             <strong>No limit set</strong>

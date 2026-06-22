@@ -205,6 +205,9 @@ Schema: **public**
 | 4 | reporting_period_id | integer | ✅ |  |
 | 5 | value | numeric(18,4) | ✅ |  |
 | 6 | target | numeric(18,4) | ❌ |  |
+| 7 | target_type | character varying(16) | ✅ |  |
+| 8 | target_lower | numeric(18,4) | ❌ |  |
+| 9 | target_upper | numeric(18,4) | ❌ |  |
 
 ---
 

@@ -116,6 +116,8 @@
             </thead>
             <tbody>
                 {% for metric in base_metrics %}
+                {% set entry = existing_values.get(metric.key, {}) %}
+                {% set selected_target_type = entry.get('target_type', 'single') %}
                 <tr>
                     <td>
                         <strong>{{ metric.display_name }}</strong>
@@ -133,10 +135,10 @@
                                    class="input-value"
                                    placeholder="Enter value"
                                    aria-label="{{ metric.display_name }} value"
-                                   value="{{ existing_values.get(metric.key, {}).get('value', '') if existing_values.get(metric.key, {}).get('value') is not none else '' }}">
+                                   value="{{ entry.get('value', '') if entry.get('value') is not none else '' }}">
                         </div>
                         {% else %}
-                        {{ existing_values.get(metric.key, {}).get('value', 'N/A') }}
+                        {{ entry.get('value', 'N/A') }}
                         {% endif %}
                     </td>
                     <td>
@@ -144,17 +146,76 @@
                     </td>
                     <td>
                         {% if current_user.can_edit_page('reporting_input') %}
-                        <div class="number-entry-field number-entry-field-target">
-                            <input type="number"
-                                   name="target_{{ metric.id }}"
-                                   step="any"
-                                   class="input-value"
-                                   placeholder="Optional target"
-                                   aria-label="{{ metric.display_name }} target"
-                                   value="{{ existing_values.get(metric.key, {}).get('target', '') if existing_values.get(metric.key, {}).get('target') is not none else '' }}">
+                        <div class="target-entry-control" data-target-entry>
+                            <div class="target-mode-toggle" role="radiogroup" aria-label="{{ metric.display_name }} target mode">
+                                <label class="target-mode-option" title="Single target">
+                                    <input type="radio"
+                                           name="target_type_{{ metric.id }}"
+                                           value="single"
+                                           data-target-mode
+                                           {% if selected_target_type != 'range' %}checked{% endif %}>
+                                    <span class="target-mode-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <circle cx="12" cy="12" r="8"></circle>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    </span>
+                                    <span class="sr-only">Single target</span>
+                                </label>
+                                <label class="target-mode-option" title="Target range">
+                                    <input type="radio"
+                                           name="target_type_{{ metric.id }}"
+                                           value="range"
+                                           data-target-mode
+                                           {% if selected_target_type == 'range' %}checked{% endif %}>
+                                    <span class="target-mode-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" focusable="false">
+                                            <path d="M5 12h14"></path>
+                                            <path d="M8 7v10"></path>
+                                            <path d="M16 7v10"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="sr-only">Target range</span>
+                                </label>
+                            </div>
+                            <div class="target-panel target-panel-single" data-target-panel="single" {% if selected_target_type == 'range' %}hidden{% endif %}>
+                                <div class="number-entry-field number-entry-field-target">
+                                    <input type="number"
+                                           name="target_{{ metric.id }}"
+                                           step="any"
+                                           class="input-value"
+                                           placeholder="Target"
+                                           aria-label="{{ metric.display_name }} single target"
+                                           value="{{ entry.get('target', '') if entry.get('target') is not none else '' }}">
+                                </div>
+                            </div>
+                            <div class="target-panel target-panel-range" data-target-panel="range" {% if selected_target_type != 'range' %}hidden{% endif %}>
+                                <div class="number-entry-field number-entry-field-target target-range-field">
+                                    <input type="number"
+                                           name="target_lower_{{ metric.id }}"
+                                           step="any"
+                                           class="input-value"
+                                           placeholder="Lower"
+                                           aria-label="{{ metric.display_name }} lower target"
+                                           value="{{ entry.get('target_lower', '') if entry.get('target_lower') is not none else '' }}">
+                                </div>
+                                <div class="number-entry-field number-entry-field-target target-range-field">
+                                    <input type="number"
+                                           name="target_upper_{{ metric.id }}"
+                                           step="any"
+                                           class="input-value"
+                                           placeholder="Upper"
+                                           aria-label="{{ metric.display_name }} upper target"
+                                           value="{{ entry.get('target_upper', '') if entry.get('target_upper') is not none else '' }}">
+                                </div>
+                            </div>
                         </div>
                         {% else %}
-                        {{ existing_values.get(metric.key, {}).get('target', 'N/A') }}
+                            {% if selected_target_type == 'range' and entry.get('target_lower') is not none and entry.get('target_upper') is not none %}
+                            {{ entry.get('target_lower') }} - {{ entry.get('target_upper') }}
+                            {% else %}
+                            {{ entry.get('target', 'N/A') }}
+                            {% endif %}
                         {% endif %}
                     </td>
                 </tr>
@@ -178,5 +239,20 @@ function toggleSection(sectionId) {
     const section = document.getElementById(sectionId);
     section.style.display = section.style.display === 'none' ? 'block' : 'none';
 }
+
+document.querySelectorAll('[data-target-entry]').forEach(function(entry) {
+    function syncTargetPanels() {
+        const checkedMode = entry.querySelector('[data-target-mode]:checked');
+        const selectedMode = checkedMode ? checkedMode.value : 'single';
+        entry.querySelectorAll('[data-target-panel]').forEach(function(panel) {
+            panel.hidden = panel.getAttribute('data-target-panel') !== selectedMode;
+        });
+    }
+
+    entry.querySelectorAll('[data-target-mode]').forEach(function(mode) {
+        mode.addEventListener('change', syncTargetPanels);
+    });
+    syncTargetPanels();
+});
 </script>
 {% endblock %}

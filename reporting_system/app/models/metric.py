@@ -233,6 +233,9 @@ class MetricValue(db.Model):
     reporting_period_id = db.Column(db.Integer, db.ForeignKey('reporting_periods.id'), nullable=False)
     value = db.Column(db.Numeric(18, 4), nullable=False)
     target = db.Column(db.Numeric(18, 4), nullable=True)
+    target_type = db.Column(db.String(16), nullable=False, default='single')
+    target_lower = db.Column(db.Numeric(18, 4), nullable=True)
+    target_upper = db.Column(db.Numeric(18, 4), nullable=True)
     
     # Unique constraint to prevent duplicate entries
     __table_args__ = (
@@ -304,5 +307,8 @@ class MetricValue(db.Model):
             result[v.metric.key] = {
                 'value': float(v.value) if v.value is not None else None,
                 'target': float(v.target) if v.target is not None else None,
+                'target_type': v.target_type or 'single',
+                'target_lower': float(v.target_lower) if v.target_lower is not None else None,
+                'target_upper': float(v.target_upper) if v.target_upper is not None else None,
             }
         return result
