@@ -712,17 +712,21 @@ body.app-modal-open {
 }
 
 .dashboard-filter-bar {
-    padding: 18px;
+    padding: 16px 18px;
     margin-bottom: var(--spacing-xl);
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.96));
-    border-color: rgba(148, 163, 184, 0.18);
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
+    background: rgba(15, 23, 42, 0.82);
+    border-color: rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
 }
 
 .dashboard-filter-form {
     display: grid;
-    grid-template-columns: minmax(230px, 280px) minmax(280px, 1fr) auto auto;
-    gap: 16px;
+    grid-template-columns: minmax(240px, 300px) minmax(260px, 1fr) auto;
+    grid-template-areas:
+        "period target actions"
+        "teams teams teams";
+    gap: 14px 16px;
     align-items: end;
 }
 
@@ -733,11 +737,23 @@ body.app-modal-open {
     min-width: 0;
 }
 
+.dashboard-period-filter {
+    grid-area: period;
+}
+
+.dashboard-target-filter {
+    grid-area: target;
+}
+
+.dashboard-filter-actions {
+    grid-area: actions;
+}
+
 .dashboard-period-filter label,
 .dashboard-filter-label {
     font-size: var(--font-size-xs);
     font-weight: 800;
-    color: #b9c9e8;
+    color: #9fb2d0;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
@@ -752,7 +768,14 @@ body.app-modal-open {
 }
 
 .dashboard-team-filter {
+    grid-area: teams;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
     min-width: 0;
+    padding-top: 14px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .dashboard-team-options {
@@ -767,11 +790,11 @@ body.app-modal-open {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 36px;
-    padding: 7px 12px 7px 9px;
-    border-radius: 12px;
+    min-height: 34px;
+    padding: 6px 11px 6px 8px;
+    border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.24);
-    background-color: rgba(15, 23, 42, 0.68);
+    background-color: rgba(2, 6, 23, 0.28);
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
     font-weight: 700;
@@ -791,7 +814,7 @@ body.app-modal-open {
     justify-content: center;
     width: 18px;
     height: 18px;
-    border-radius: 6px;
+    border-radius: 5px;
     border: 1px solid rgba(148, 163, 184, 0.42);
     background-color: rgba(2, 6, 23, 0.54);
     flex: 0 0 auto;
@@ -833,7 +856,8 @@ body.app-modal-open {
     gap: 10px;
     min-height: 42px;
     padding: 8px 12px;
-    border-radius: 12px;
+    max-width: 100%;
+    border-radius: 10px;
     border: 1px solid rgba(148, 163, 184, 0.24);
     background-color: rgba(15, 23, 42, 0.68);
     color: var(--color-text-primary);
@@ -882,6 +906,7 @@ body.app-modal-open {
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
+    align-self: end;
 }
 
 .dashboard-filter-actions .btn {
@@ -4576,6 +4601,11 @@ body.app-modal-open {
 
     .dashboard-filter-form {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "period"
+            "target"
+            "teams"
+            "actions";
     }
 
     .dashboard-filter-actions {
@@ -4587,6 +4617,11 @@ body.app-modal-open {
     .dashboard-target-toggle {
         width: 100%;
         white-space: normal;
+    }
+
+    .dashboard-team-filter {
+        grid-template-columns: 1fr;
+        align-items: stretch;
     }
     
     .form-group.inline {
